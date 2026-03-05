@@ -1,6 +1,6 @@
 <template>
   <div class="lobby-container">
-    <h1>Multiplayer Card Game</h1>
+    <h1>Cards Against Humanity</h1>
 
     <div class="create-section">
       <h3>Start a New Game</h3>
