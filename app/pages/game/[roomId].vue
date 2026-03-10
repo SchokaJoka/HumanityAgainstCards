@@ -298,30 +298,32 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="mx-auto max-w-4xl p-4 sm:p-6">
-        <!-- Lobby / Header -->
-        <div class="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div class="flex items-center justify-between">
+    <div class="flex flex-col items-center min-h-screen bg-gray-100 p-6">
+
+        <!-- Header Card -->
+        <div class="bg-white rounded shadow-md w-full max-w-2xl p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
                 <div>
-                    <h1 class="text-xl font-bold text-gray-900">Room: {{ roomCode }}</h1>
+                    <h1 class="text-2xl font-bold">Room: {{ roomCode }}</h1>
                     <p class="text-sm text-gray-500">{{ players.length }} players online</p>
                 </div>
                 <div class="flex gap-2">
                     <button v-if="!gameStarted && isGameMaster" @click="startGame"
-                        class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">
+                        class="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600">
                         Start Game
                     </button>
-                    <button @click="leaveRoom" class="text-sm font-medium text-gray-600 hover:text-gray-900">
+                    <button @click="leaveRoom"
+                        class="px-4 py-2 text-gray-500 border border-gray-300 text-sm rounded hover:bg-gray-50">
                         Leave
                     </button>
                 </div>
             </div>
 
             <!-- Player List -->
-            <div class="mt-4 flex flex-wrap gap-2">
+            <div class="flex flex-wrap gap-2">
                 <div v-for="player in players" :key="player.user_id"
-                    class="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium"
-                    :class="czarId === player.user_id ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-gray-50'">
+                    class="flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
+                    :class="czarId === player.user_id ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-600'">
                     <span>{{ player.user_name }}</span>
                     <span v-if="czarId === player.user_id" class="font-bold">CZAR</span>
                     <span class="text-gray-400">({{ scores[player.user_id] || 0 }})</span>
@@ -329,16 +331,15 @@ onUnmounted(() => {
             </div>
         </div>
 
-        <div v-if="authError" class="mb-4 rounded-md bg-red-50 p-4 text-sm text-red-700">
-            {{ authError }}
-        </div>
+        <p v-if="authError" class="text-red-500 text-sm mb-4">{{ authError }}</p>
 
         <!-- Game Area -->
-        <div v-if="gameStarted" class="space-y-8">
+        <div v-if="gameStarted" class="w-full max-w-2xl space-y-6">
+
             <!-- Black Card -->
             <div class="flex justify-center">
                 <div v-if="blackCard"
-                    class="relative h-64 w-48 rounded-xl bg-gray-900 p-6 text-lg font-bold text-white shadow-xl">
+                    class="relative h-64 w-48 rounded bg-gray-900 p-6 text-lg font-bold text-white shadow-md">
                     <div
                         v-html="blackCard.text.replace(/_/g, '<span class=\'border-b-2 border-white px-4 inline-block\'></span>')">
                     </div>
@@ -347,39 +348,38 @@ onUnmounted(() => {
             </div>
 
             <!-- Status Message -->
-            <div class="text-center">
-                <p v-if="roundStatus === 'SELECTION'" class="text-lg font-medium">
-                    {{ isCzar ? 'Waiting for players to pick...' : (myPlayedCard ? 'Waiting for others...'
-                        : 'Pick a white card!') }}
+            <div class="bg-white rounded shadow-md p-6 text-center">
+                <p v-if="roundStatus === 'SELECTION'" class="text-lg font-medium text-gray-700">
+                    {{ isCzar ? 'Waiting for players to pick...' : (myPlayedCard ? 'Waiting for others...' : 'Pick a white card!') }}
                 </p>
-                <p v-if="roundStatus === 'JUDGING'" class="text-lg font-medium text-indigo-600">
+                <p v-if="roundStatus === 'JUDGING'" class="text-lg font-medium text-blue-600">
                     {{ isCzar ? 'Pick the winner!' : 'The Czar is judging...' }}
                 </p>
-                <div v-if="roundStatus === 'WINNER'" class="space-y-2">
-                    <p class="text-xl font-bold text-emerald-600">Winner found!</p>
+                <div v-if="roundStatus === 'WINNER'" class="space-y-3">
+                    <p class="text-xl font-bold text-green-600">Winner found!</p>
                     <button v-if="isGameMaster" @click="nextRound"
-                        class="rounded-lg bg-gray-900 px-6 py-2 text-white font-semibold">
+                        class="px-6 py-2 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600">
                         Next Round
                     </button>
                 </div>
             </div>
 
-            <!-- Judging Area (Czar sees these) -->
+            <!-- Judging Area -->
             <div v-if="roundStatus === 'JUDGING' || roundStatus === 'WINNER'"
                 class="flex flex-wrap justify-center gap-4">
                 <div v-for="(play, idx) in playedCards" :key="idx" @click="selectWinner(play)"
-                    class="h-64 w-48 cursor-pointer rounded-xl border-2 p-4 font-bold shadow-md transition-all hover:-translate-y-2"
-                    :class="winner?.winnerId === play.playerId ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-indigo-400'">
+                    class="h-64 w-48 cursor-pointer rounded border-2 bg-white p-4 font-bold shadow-md transition-all hover:-translate-y-2"
+                    :class="winner?.winnerId === play.playerId ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-blue-400'">
                     {{ play.card.text }}
                 </div>
             </div>
 
             <!-- Player Hand -->
-            <div v-if="!isCzar" class="mt-12">
+            <div v-if="!isCzar">
                 <h3 class="mb-4 text-center text-sm font-semibold uppercase tracking-wider text-gray-500">Your Hand</h3>
                 <div class="flex flex-wrap justify-center gap-3">
                     <div v-for="card in mappedHandCards" :key="card.id" @click="playCard(card)"
-                        class="h-48 w-36 cursor-pointer rounded-lg border border-gray-200 bg-white p-4 text-sm font-bold shadow-sm transition-all hover:-translate-y-2 hover:border-indigo-400 hover:shadow-md"
+                        class="h-48 w-36 cursor-pointer rounded border border-gray-200 bg-white p-4 text-sm font-bold shadow-sm transition-all hover:-translate-y-2 hover:border-blue-400 hover:shadow-md"
                         :class="myPlayedCard?.id === card.id ? 'opacity-50 grayscale' : ''">
                         {{ card.text }}
                     </div>
@@ -388,9 +388,8 @@ onUnmounted(() => {
         </div>
 
         <!-- Waiting for game to start -->
-        <div v-else
-            class="flex h-64 flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200">
-            <p class="text-gray-500">Wait for the Game Master to start...</p>
+        <div v-else class="bg-white rounded shadow-md w-full max-w-2xl p-12 flex flex-col items-center justify-center">
+            <p class="text-gray-500">Waiting for the Game Master to start...</p>
         </div>
     </div>
 </template>

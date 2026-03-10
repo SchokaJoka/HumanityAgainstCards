@@ -1,41 +1,48 @@
 <template>
-  <div class="lobby-container">
-    <div>
-      <h1>Cards Against Humanity</h1>
-      <!-- show name if user is logged in otherwise show you're playing as a guest -->
-      <p v-if="user">
-        Playing as:
-        {{ user.user_metadata.full_name }}
-      </p>
-      <p v-else>Playing as: Guest</p>
+  <div class="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+    <div class="absolute top-4 right-4">
+      <button
+        @click="handleAuthAction"
+        class="px-4 py-2 text-gray-500 border border-gray-300 rounded hover:bg-gray-50"
+      >
+        {{ user ? "Logout" : "Login" }}
+      </button>
     </div>
+    <h1 class="text-4xl font-bold mb-2">Cards Against Humanity</h1>
+    <p class="text-gray-500 mb-8">
+      <span v-if="user">Playing as: <span class="font-semibold text-gray-700">{{ user.user_metadata.full_name }}</span></span>
+      <span v-else>Playing as: Guest</span>
+    </p>
 
-    <!-- login button redirecting to login page, change name to Logout if already loggedged in -->
-    <button @click="handleAuthAction">
-      {{ user ? "Logout" : "Login" }}
-    </button>
+    <div class="bg-white p-8 rounded shadow-md w-96">
+      <h2 class="text-xl font-semibold mb-4">Start new Game</h2>
+      <button
+        @click="createGame"
+        class="w-full my-2 px-6 py-3 bg-blue-500 text-white rounded hover:bg-blue-600"
+      >
+        Create Room
+      </button>
 
-    <div class="create-section mx-1 my-1">
-      <h3>Start a New Game</h3>
-      <button @click="createGame">Create Room</button>
-    </div>
+      <hr class="my-6" />
 
-    <hr />
-
-    <div class="join-section">
-      <h3>Join Existing Game</h3>
+      <h2 class="text-xl font-semibold mb-4">Join Game</h2>
       <input
         v-model="roomCodeInput"
         type="text"
         placeholder="Enter Room Code (e.g. A7X9)"
+        class="w-full px-4 py-2 mb-4 border rounded"
         @keyup.enter="joinGame"
       />
-      <button @click="joinGame" :disabled="!roomCodeInput">Join Room</button>
-    </div>
+      <button
+        @click="joinGame"
+        :disabled="!roomCodeInput"
+        class="w-full my-2 px-6 py-3 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Join Room
+      </button>
 
-    <p v-if="lobbyError" class="error-text">
-      {{ lobbyError }}
-    </p>
+      <p v-if="lobbyError" class="text-red-500 mt-4 text-sm">{{ lobbyError }}</p>
+    </div>
   </div>
 </template>
 
@@ -128,27 +135,4 @@ const handleAuthAction = async () => {
 };
 </script>
 
-<style scoped>
-/* Add some quick styling to separate the sections */
-.lobby-container {
-  max-width: 400px;
-  margin: 0 auto;
-  text-align: center;
-}
-.create-section,
-.join-section {
-  margin: 2rem 0;
-}
-input {
-  padding: 0.5rem;
-  margin-right: 0.5rem;
-}
-button {
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-}
-.error-text {
-  color: #dc2626;
-  margin-top: 1rem;
-}
-</style>
+
