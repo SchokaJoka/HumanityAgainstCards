@@ -71,6 +71,7 @@
 
 <script setup lang="ts">
 const supabase = useSupabaseClient();
+const route = useRoute();
 const email = ref('');
 const password = ref('');
 const username = ref('');
@@ -78,6 +79,16 @@ const mode = ref<'login' | 'signup' | 'anonymous'>('login');
 const errorMessage = ref('');
 const successMessage = ref('');
 const loading = ref(false);
+
+const getRedirectPath = () => {
+  if(route.query.redirect === 'createGame') {
+    return '/?action=createGame';
+  } else if (route.query.redirect === 'joinGame' && route.query.roomCode) {
+      return `/game/${route.query.roomCode}`;
+  } else {
+    return '/';
+  }
+}
 
 const setMode = (newMode: 'login' | 'signup' | 'anonymous') => {
   mode.value = newMode;
@@ -109,7 +120,7 @@ const handleLogin = async () => {
   } else {
     successMessage.value = 'Login successful! Redirecting...';
     setTimeout(() => {
-      navigateTo('/');
+      navigateTo(getRedirectPath());
     }, 1000);
   }
 };
@@ -158,7 +169,7 @@ const handleSignUp = async () => {
       successMessage.value = 'Sign up successful! Please check your email to confirm your account.';
     } else {
       setTimeout(() => {
-        navigateTo('/');
+        navigateTo(getRedirectPath());
       });
     }
   }
@@ -191,7 +202,7 @@ const handleAnonymousLogin = async () => {
   } else {
     successMessage.value = 'Logged in as guest! Redirecting...';
     setTimeout(() => {
-      navigateTo('/');
+      navigateTo(getRedirectPath());
     }, 1000);
   }
 };

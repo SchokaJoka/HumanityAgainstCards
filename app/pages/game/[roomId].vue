@@ -28,18 +28,6 @@ const winner = ref(null)
 const roundStatus = ref('LOBBY') // LOBBY, SELECTION, JUDGING, WINNER
 const scores = ref({})
 
-// Computed property to join hand card IDs with their text from the collection
-const mappedHandCards = computed(() => {
-    const allCards = collectionCards.value?.data || []
-    return playerHandCards.value.map(handCard => {
-        const cardDetails = allCards.find(c => c.id === handCard.card_id)
-        return {
-            ...handCard,
-            text: cardDetails?.text || 'Loading...'
-        }
-    })
-})
-
 // First player in join order acts as game master.
 const gameMasterId = computed(() => {
     const firstPlayer = players.value[0]
@@ -118,13 +106,18 @@ onMounted(async () => {
     roomId.value = existingRoom.id
 
     // Add player to room_members table (or mark active if rejoining)
-    await supabase.from('room_members').upsert({
+    const {data, error} = await supabase.from('room_members').upsert({
         room_id: roomId.value,
         user_id: playerId.value,
         role: 'player',
         is_active: true,
     }, { onConflict: 'room_id,user_id' })
 
+    if (error) {
+        authError.value = 'Failed to join room.'
+        console.error('Error joining room:', error)
+        return
+    }
     // Join the realtime channel for this room by room ID
     gameChannel.value = supabase.channel(`${roomCode}`, {
         config: { broadcast: { self: true }, presence: { key: playerId.value } }
@@ -162,7 +155,7 @@ onMounted(async () => {
 
     })
 
-    gameChannel.value.on('broadcast', { event: 'game_started' }, () => {
+    gameChannel.value.on('broadcast', { event: 'game_start' }, () => {
         gameStarted.value = true
         roundStatus.value = 'SELECTION'
     })
@@ -228,23 +221,24 @@ const startGame = async () => {
         return
     }
 
-    const { data, error } = await supabase.functions.invoke('assign_hand_cards', {
+    const { data } = await supabase.functions.invoke('assign_hand_cards', {
         method: 'POST',
-        body: { set_id: sets[0].id, room_id: roomId.value },
-        headers: { Authorization: `Bearer ${session.access_token}` }
+        body: { set_id: sets[0].id, room_id: roomId.value }
     })
 
-    if (error) {
-        console.error('Function error', error)
-        authError.value = 'Failed to deal cards.'
+    if (!data) {
+        authError.value = 'Failed to assign hand cards.'
         return
     }
 
-    console.log('Dealt cards response:', data)
 
     gameChannel.value.send({
       type: "broadcast",
-      event: "game_started",
+      event: "cards_dealt",
+    })
+    gameChannel.value.send({
+      type: "broadcast",
+      event: "game_start",
     })
 }
 
@@ -378,10 +372,10 @@ onUnmounted(() => {
             <div v-if="!isCzar">
                 <h3 class="mb-4 text-center text-sm font-semibold uppercase tracking-wider text-gray-500">Your Hand</h3>
                 <div class="flex flex-wrap justify-center gap-3">
-                    <div v-for="card in mappedHandCards" :key="card.id" @click="playCard(card)"
+                    <div v-for="card in playerHandCards" :key="card.id" @click="playCard(card)"
                         class="h-48 w-36 cursor-pointer rounded border border-gray-200 bg-white p-4 text-sm font-bold shadow-sm transition-all hover:-translate-y-2 hover:border-blue-400 hover:shadow-md"
                         :class="myPlayedCard?.id === card.id ? 'opacity-50 grayscale' : ''">
-                        {{ card.text }}
+                        {{ (collectionCards.data || []).find(c => c.id === card.card_id)?.text || 'Loading...' }}
                     </div>
                 </div>
             </div>

@@ -11,15 +11,6 @@
       </button>
     </div>
     <h1 class="text-4xl font-bold mb-2">Cards Against Humanity</h1>
-    <p class="text-gray-500 mb-8">
-      <span v-if="user"
-        >Playing as:
-        <span class="font-semibold text-gray-700">{{
-          user.user_metadata.full_name
-        }}</span></span
-      >
-      <span v-else>Playing as: Guest {{ currentUser?.id }}</span>
-    </p>
 
     <div class="bg-white p-8 rounded shadow-md w-96">
       <h2 class="text-xl font-semibold mb-4">Start new Game</h2>
@@ -60,8 +51,16 @@ const roomCodeInput = ref("");
 const lobbyError = ref("");
 const supabase = useSupabaseClient();
 const user = useSupabaseUser();
+const route = useRoute();
 
-console.log("User, ", user.value);
+onMounted(async () => {
+
+  console.log("User, ", user.value);
+
+  if (route.query.action === 'createGame') {
+    await createGame();
+  }
+});
 
 // Nuxt's built-in navigation helper
 const navigateToRoom = async (roomCode) => {
@@ -77,26 +76,8 @@ const createGame = async () => {
   console.log("Creating a new game room...");
   lobbyError.value = "";
 
-  const { data: currentAuthData } = await supabase.auth.getUser();
-  let currentUser = currentAuthData.user;
-
-  if (!currentUser) {
-    const { data: anonymousAuthData, error: anonymousAuthError } =
-      await supabase.auth.signInAnonymously();
-
-    if (anonymousAuthError) {
-      lobbyError.value =
-        "Could not create guest session. Please refresh and try again.";
-      console.error("Anonymous auth failed:", anonymousAuthError);
-      return;
-    }
-
-    currentUser = anonymousAuthData.user;
-  }
-
-  if (!currentUser?.id) {
-    lobbyError.value =
-      "No player identity available. Please refresh and try again.";
+  if (!user.value) {
+    await navigateTo("/login?redirect=createGame");
     return;
   }
 
@@ -106,7 +87,7 @@ const createGame = async () => {
     .from("rooms")
     .insert({
       code: newRoomCode,
-      owner: currentUser.id,
+      owner: user.value.id || user.value.sub,
       metadata: {},
     })
     .select()
@@ -129,6 +110,11 @@ const joinGame = async () => {
 
   const roomCode = roomCodeInput.value.trim().toUpperCase();
   if (!roomCode) return;
+
+  if (!user.value) {
+    await navigateTo("/login?redirect=joinGame&roomCode=" + roomCode);
+    return;
+  }
 
   await navigateToRoom(roomCode);
 };
