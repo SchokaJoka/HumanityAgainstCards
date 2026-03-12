@@ -195,7 +195,7 @@ const createGame = async () => {
     .insert({
       code: newRoomCode,
       owner: user.value.id || user.value.sub,
-      metadata: {},
+      metadata: { round_status: "lobby"},
     })
     .select()
     .single();

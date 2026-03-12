@@ -2,6 +2,7 @@
 import { useCards } from "~/composables/useCards";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
+const user = useSupabaseUser();
 const supabase = useSupabaseClient();
 const { getCardSets, getCardsFromSets } = useCards();
 
@@ -25,9 +26,9 @@ const hand = ref([]);
 const collectionCards = ref<any>({});
 const blackCard = ref({});
 const playedCards = ref([]); // Cards played by others this round
-const myPlayedCard = ref(null);
+const myPlayedCard = ref<any[]>([]);
 const winner = ref(null);
-const roundStatus = ref("LOBBY"); // LOBBY, SELECTION, JUDGING, WINNER
+const roundStatus = ref("lobby"); // LOBBY, SELECTION, JUDGING, WINNER
 const scores = ref({});
 
 const gameState = ref({});
@@ -57,64 +58,52 @@ const isCzar = computed(() => {
 });
 
 onMounted(async () => {
-  /* 
-    Authentication
-    */
-
-  let currentUser;
-  const { data: AuthData } = await supabase.auth.getUser();
-
-  if (!AuthData.user) {
-    console.log("No user session, creating anonymous user...");
-
-    const { data: anonymousAuthData, error: anonymousAuthError } =
-      await supabase.auth.signInAnonymously();
-
-    if (anonymousAuthError) {
-      authError.value = "Could not create guest session!";
-      return;
-    }
-
-    currentUser = anonymousAuthData.user;
-  } else {
-    currentUser = AuthData.user;
-    console.log("Existing user session found:", currentUser);
-  }
-
-  if (!currentUser) {
-    authError.value = "Failed to authenticate user.";
-    return;
-  }
-
-  playerId.value = currentUser.id;
-
-  /*
-    Join Room
-    */
 
   // Look up the room by code and get its ID
-  const { data: existingRoom } = await supabase
+  // ===============================================================
+  const { data: roomData } = await supabase
     .from("rooms")
-    .select("id, code")
+    .select("id, code, metadata")
     .eq("code", roomCode)
     .maybeSingle();
 
-  if (!existingRoom) {
+  if (!roomData) {
     authError.value = "Room does not exist.";
     return;
   }
 
-  roomId.value = existingRoom.id;
+  roomId.value = roomData.id;
+  // ===============================================================
 
-  console.log(roomId.value);
+  // Authentication
+  // ===============================================================
+  if (!user.value) {
+    navigateTo("/login?redirect=joinGame&roomCode=" + roomCode);
+
+  } else {
+    console.log("Existing user session found:", user.value);
+    playerId.value = user.value.sub;
+  }
+  // ===============================================================
 
   // Add player to room_members table (or mark active if rejoining)
-  const { data, error } = await supabase.from("room_members").upsert(
+  // ===============================================================
+  if (!playerId.value || !roomId.value) {
+    authError.value = "Missing player or room ID.";
+
+    console.log("playerId:", playerId.value);
+    console.log("roomId:", roomId.value);
+    return;
+  }
+
+  const { error } = await supabase.from("room_members").upsert(
     {
       room_id: roomId.value,
       user_id: playerId.value,
       role: "player",
       is_active: true,
+      left_at: null,
+      joined_at: new Date().toISOString(),
     },
     { onConflict: "room_id,user_id" },
   );
@@ -124,7 +113,11 @@ onMounted(async () => {
     console.error("Error joining room:", error);
     return;
   }
+  // ===============================================================
+
+
   // Join the realtime channel for this room by room ID
+  // ===============================================================
   gameChannel.value = supabase.channel(`${roomCode}`, {
     config: { broadcast: { self: true }, presence: { key: playerId.value } },
   });
@@ -133,7 +126,10 @@ onMounted(async () => {
     authError.value = "Failed to join game channel.";
     return;
   }
+  // ===============================================================
 
+  // Set up realtime listeners for presence and game state changes
+  // ===============================================================
   gameChannel.value.on("presence", { event: "sync" }, () => {
     const newState = gameChannel.value.presenceState();
 
@@ -197,12 +193,36 @@ onMounted(async () => {
     if (status === "SUBSCRIBED") {
       await gameChannel.value.track({
         user_id: playerId.value,
-        user_name: currentUser.user_metadata.full_name || "Guest",
+        user_name: user.value.user_metadata.full_name || "Guest",
         status: "playing",
         joined_at: Date.now(),
       });
     }
   });
+  // ===============================================================
+
+  if (roomData.metadata?.round_status !== "lobby") {
+    // Game already in progress, sync to current state
+    const { data: handCardsData } = await supabase
+      .from("hand_cards")
+      .select("*")
+      .eq("room_id", roomId.value)
+      .eq("user_id", playerId.value);
+    playerHandCards.value = handCardsData ?? [];
+
+    console.log("playerHandCards:", playerHandCards.value);
+
+    collectionCards.value = await supabase
+      .from("cards")
+      .select("*")
+      .eq("collection_id", roomData.metadata.set_id);
+
+    gameStarted.value = true;
+    roundStatus.value = roomData.metadata.round_status;
+    blackCard.value = roomData.metadata.black_card;
+
+    console.log("collectionCards:", collectionCards.value);
+  }
 
   // // Load existing moves to catch up
   // const { data: moves } = await supabase
@@ -276,7 +296,7 @@ async function handleGameStateChanges(newState: object) {
   gameState.value = newState.metadata;
 
   if (newState.metadata.round_status === "round_start") {
-        handleRoundStart(newState);
+    handleRoundStart(newState);
   }
 
   console.log("Czar ID: ", czarId.value);
@@ -284,14 +304,24 @@ async function handleGameStateChanges(newState: object) {
 }
 
 async function handleRoundStart(newState: object) {
-    roundStatus.value = "round_start";
-    blackCard.value = newState.metadata.black_card;
-    console.log("Black card for this round:", blackCard.value);
+  roundStatus.value = "round_start";
+  blackCard.value = newState.metadata.black_card;
+  console.log("Black card for this round:", blackCard.value);
 }
 
-const recordMove = async (payload) => {};
+const submitWhiteCards = async () => {
 
-const playCard = async (card) => {};
+};
+
+const chooseCard = async (card) => {
+  if (isCzar.value) return;
+  const idx = myPlayedCard.value.findIndex((c) => c.id === card.id);
+  if (idx === -1) {
+    myPlayedCard.value.push(card);
+  } else {
+    myPlayedCard.value.splice(idx, 1);
+  }
+};
 
 const leaveRoom = async () => {
   const { error } = await supabase
@@ -334,19 +364,17 @@ onUnmounted(() => {
           <p class="text-sm text-gray-500">
             {{ players.length }} players online
           </p>
+          <p class="text-sm text-blue-500">
+            ({{ roundStatus }})
+          </p>
         </div>
         <div class="flex gap-2">
-          <button
-            v-if="!gameStarted && isGameMaster"
-            @click="startGame"
-            class="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600"
-          >
+          <button v-if="!gameStarted && isGameMaster" @click="startGame"
+            class="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600">
             Start Game
           </button>
-          <button
-            @click="leaveRoom"
-            class="px-4 py-2 text-gray-500 border border-gray-300 text-sm rounded hover:bg-gray-50"
-          >
+          <button @click="leaveRoom"
+            class="px-4 py-2 text-gray-500 border border-gray-300 text-sm rounded hover:bg-gray-50">
             Leave
           </button>
         </div>
@@ -354,16 +382,11 @@ onUnmounted(() => {
 
       <!-- Player List -->
       <div class="flex flex-wrap gap-2">
-        <div
-          v-for="player in players"
-          :key="player.user_id"
-          class="flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
-          :class="
-            czarId === player.user_id
-              ? 'bg-blue-50 border-blue-200 text-blue-700'
-              : 'bg-gray-50 border-gray-200 text-gray-600'
-          "
-        >
+        <div v-for="player in players" :key="player.user_id"
+          class="flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium" :class="czarId === player.user_id
+            ? 'bg-blue-50 border-blue-200 text-blue-700'
+            : 'bg-gray-50 border-gray-200 text-gray-600'
+            ">
           <span>{{ player.user_name }}</span>
           <span v-if="czarId === player.user_id" class="font-bold">CZAR</span>
           <span class="text-gray-400">({{ scores[player.user_id] || 0 }})</span>
@@ -377,10 +400,7 @@ onUnmounted(() => {
     <div v-if="gameStarted" class="w-full max-w-2xl space-y-6">
       <!-- Black Card -->
       <div class="flex justify-center">
-        <div
-          v-if="blackCard"
-          class="relative h-64 w-48 rounded bg-gray-900 p-6 text-lg font-bold text-white shadow-md"
-        >
+        <div v-if="blackCard" class="relative h-64 w-48 rounded bg-gray-900 p-6 text-lg font-bold text-white shadow-md">
           <div>
             {{ blackCard.text }}
           </div>
@@ -390,71 +410,48 @@ onUnmounted(() => {
 
       <!-- Status Message -->
       <div class="bg-white rounded shadow-md p-6 text-center">
-        <p
-          v-if="roundStatus === 'round_start'"
-          class="text-lg font-medium text-gray-700"
-        >
+        <p v-if="roundStatus === 'round_start'" class="text-lg font-medium text-gray-700">
           {{
             isCzar
               ? "Waiting for players to pick..."
-              : myPlayedCard
+              : myPlayedCard.length > 0
                 ? "Waiting for others..."
                 : "Pick a white card!"
           }}
         </p>
-        <p
-          v-if="roundStatus === 'JUDGING'"
-          class="text-lg font-medium text-blue-600"
-        >
+        <p v-if="roundStatus === 'JUDGING'" class="text-lg font-medium text-blue-600">
           {{ isCzar ? "Pick the winner!" : "The Czar is judging..." }}
         </p>
         <div v-if="roundStatus === 'WINNER'" class="space-y-3">
           <p class="text-xl font-bold text-green-600">Winner found!</p>
-          <button
-            v-if="isGameMaster"
-            @click="nextRound"
-            class="px-6 py-2 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600"
-          >
+          <button v-if="isGameMaster" @click="nextRound"
+            class="px-6 py-2 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600">
             Next Round
           </button>
         </div>
       </div>
 
       <!-- Judging Area -->
-      <div
-        v-if="roundStatus === 'JUDGING' || roundStatus === 'WINNER'"
-        class="flex flex-wrap justify-center gap-4"
-      >
-        <div
-          v-for="(play, idx) in playedCards"
-          :key="idx"
-          @click="selectWinner(play)"
+      <div v-if="roundStatus === 'JUDGING' || roundStatus === 'WINNER'" class="flex flex-wrap justify-center gap-4">
+        <div v-for="(play, idx) in playedCards" :key="idx" @click="selectWinner(play)"
           class="h-64 w-48 cursor-pointer rounded border-2 bg-white p-4 font-bold shadow-md transition-all hover:-translate-y-2"
-          :class="
-            winner?.winnerId === play.playerId
-              ? 'border-green-500 bg-green-50'
-              : 'border-gray-200 hover:border-blue-400'
-          "
-        >
+          :class="winner?.winnerId === play.playerId
+            ? 'border-green-500 bg-green-50'
+            : 'border-gray-200 hover:border-blue-400'
+            ">
           {{ play.card.text }}
         </div>
       </div>
 
       <!-- Player Hand -->
       <div v-if="!isCzar">
-        <h3
-          class="mb-4 text-center text-sm font-semibold uppercase tracking-wider text-gray-500"
-        >
+        <h3 class="mb-4 text-center text-sm font-semibold uppercase tracking-wider text-gray-500">
           Your Hand
         </h3>
         <div class="flex flex-wrap justify-center gap-3">
-          <div
-            v-for="card in playerHandCards"
-            :key="card.id"
-            @click="playCard(card)"
+          <div v-for="card in playerHandCards" :key="card.id" @click="chooseCard(card)"
             class="h-48 w-36 cursor-pointer rounded border border-gray-200 bg-white p-4 text-sm font-bold shadow-sm transition-all hover:-translate-y-2 hover:border-blue-400 hover:shadow-md"
-            :class="myPlayedCard?.id === card.id ? 'opacity-50 grayscale' : ''"
-          >
+            :class="myPlayedCard.some((c) => c.id === card.id) ? 'opacity-50 grayscale' : ''">
             {{
               (collectionCards.data || []).find((c) => c.id === card.card_id)
                 ?.text || "Loading..."
@@ -465,11 +462,15 @@ onUnmounted(() => {
     </div>
 
     <!-- Waiting for game to start -->
-    <div
-      v-else
-      class="bg-white rounded shadow-md w-full max-w-2xl p-12 flex flex-col items-center justify-center"
-    >
+    <div v-else class="bg-white rounded shadow-md w-full max-w-2xl p-12 flex flex-col items-center justify-center">
       <p class="text-gray-500">Waiting for the Game Master to start...</p>
+    </div>
+
+    <div v-if="gameStarted && !isCzar" class="fixed bottom-8 flex items-center space-x-4">
+      <button @click="submitWhiteCards"
+        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
+        Submit
+      </button>
     </div>
   </div>
 </template>
