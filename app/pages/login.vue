@@ -87,7 +87,7 @@
           mode === "anonymous"
             ? "Cancel Guest Login"
             : user && user.is_anonymous && user.user_metadata?.full_name
-              ? "Change Guest Name"
+              ? "Change Name"
               : "Continue as Guest"
         }}
       </button>
@@ -137,7 +137,7 @@ const setMode = (newMode: "login" | "signup" | "anonymous") => {
 
   // Pre-fill username if switching to signup and user is already anonymous
   if (
-    newMode === "signup" &&
+    (newMode === "signup" || "anonymous") &&
     user.value?.is_anonymous &&
     user.value?.user_metadata?.full_name
   ) {
@@ -208,10 +208,15 @@ const handleSignUp = async () => {
 
     loading.value = false;
 
+
     if (updateError) {
       errorMessage.value = updateError.message;
       console.error("Convert anonymous user error:", updateError);
     } else {
+
+      await supabase.auth.refreshSession()
+      
+
       successMessage.value = "Account created successfully! Redirecting...";
       setTimeout(() => {
         navigateTo(getRedirectPath());

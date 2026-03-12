@@ -7,12 +7,14 @@ const { getCardSets, getCardsFromSets } = useCards()
 
 const route = useRoute()
 const roomCode = String(route.params.roomId ?? '').toUpperCase()
+const roomId = ref<string | null>(null)
+
+let gameChannel = ref<RealtimeChannel | null>(null)
 
 // Game state
 const players = ref([])
 const authError = ref('')
 const playerId = ref<string | null>(null)
-const roomId = ref<string | null>(null)
 const isLeaving = ref(false)
 const gameStarted = ref(false)
 const currentCzarIndex = ref(null)
@@ -52,8 +54,6 @@ const czarId = computed(() => {
 const isCzar = computed(() => {
     return !!playerId.value && playerId.value === czarId.value
 })
-
-let gameChannel = ref<RealtimeChannel | null>(null)
 
 onMounted(async () => {
    
@@ -142,20 +142,21 @@ onMounted(async () => {
     })
 
     gameChannel.value.on('broadcast', { event: 'cards_dealt' }, async (payload) => {
-        console.log('[EDGE] cards_dealt: ', payload)
+        console.log('[BROADCAST] cards_dealt')
         const { data } = await supabase.from("hand_cards").select("*").eq("room_id", roomId.value).eq("user_id", playerId.value)
         playerHandCards.value = data ?? []
         console.log("playerHandCards:", playerHandCards.value)
     })
 
     gameChannel.value.on('broadcast', { event: 'game_initialize' }, async (body) => {
-        console.log('[BROADCAST] game_initialize: ', body)
+        console.log('[BROADCAST] game_initialize: ', body.payload)
         collectionCards.value = await supabase.from("cards").select("*").eq("collection_id", body.payload.set_id)
         console.log("collectionCards:", collectionCards.value)
 
     })
 
     gameChannel.value.on('broadcast', { event: 'game_start' }, () => {
+        console.log('[BROADCAST] game_start')
         gameStarted.value = true
         roundStatus.value = 'SELECTION'
     })
@@ -179,19 +180,6 @@ onMounted(async () => {
             })
         }
     })
-
-    // // Load existing moves to catch up
-    // const { data: moves } = await supabase
-    //     .from('game_moves')
-    //     .select('*')
-    //     .eq('room_id', existingRoom.id)
-    //     .order('seq', { ascending: true })
-
-    // if (moves && moves.length > 0) {
-    //     for (const move of moves) {
-    //         await handleMove(move)
-    //     }
-    // }
 })
 
 // ACTION - Start game
@@ -214,6 +202,11 @@ const startGame = async () => {
         payload: { set_id: sets[0].id } // For now we just hardcode a set, but you could add a UI to select one
     })
 
+    gameChannel.value.send({
+      type: "broadcast",
+      event: "game_start",
+    })
+
     // Get the current session token to authorise the edge function call
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
@@ -221,24 +214,32 @@ const startGame = async () => {
         return
     }
 
-    const { data } = await supabase.functions.invoke('assign_hand_cards', {
+    const { data: edgeInitializeData } = await supabase.functions.invoke('initialize_game', {
         method: 'POST',
-        body: { set_id: sets[0].id, room_id: roomId.value }
+        body: { set_id: sets[0].id, room_id: roomId.value, cardsPerPlayer: 8}
     })
 
-    if (!data) {
+    if (!edgeInitializeData) {
+        authError.value = 'Failed to assign hand cards.'
+        return
+    }
+
+    const { data: edgeGetBlackData } = await supabase.functions.invoke('initialize_game', {
+        method: 'POST',
+        body: { set_id: sets[0].id, room_id: roomId.value, cardsPerPlayer: 8}
+    })
+
+    if (!edgeGetBlackData) {
         authError.value = 'Failed to assign hand cards.'
         return
     }
 
 
+
+
     gameChannel.value.send({
       type: "broadcast",
       event: "cards_dealt",
-    })
-    gameChannel.value.send({
-      type: "broadcast",
-      event: "game_start",
     })
 }
 
@@ -271,8 +272,17 @@ const refillHand = async () => {
 }
 
 const leaveRoom = async () => {
+    const { error } = await supabase.from('room_members')
+        .delete()
+        .eq('room_id', roomId.value)
+        .eq('user_id', playerId.value)
+
+    if (error) {
+        console.error('Error leaving room:', error)
+        return
+    }
+
     isLeaving.value = true
-    await markMemberInactive()
     await navigateTo('/')
 }
 
