@@ -4,7 +4,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 
 const user = useSupabaseUser();
 const supabase = useSupabaseClient();
-const { getCardSets, getCardsFromSets } = useCards();
+const { getCardCollections } = useCards();
 
 const route = useRoute();
 const roomCode = String(route.params.roomId ?? "").toUpperCase();
@@ -247,7 +247,7 @@ const startGame = async () => {
   }
 
   // Fetch available card sets and pick the first one
-  const sets = await getCardSets();
+  const sets = await getCardCollections();
   if (!sets || sets.length === 0) {
     authError.value = "No card sets available.";
     return;
