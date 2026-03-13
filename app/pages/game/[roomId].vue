@@ -342,7 +342,7 @@ async function handleRoundSubmitted(newState: object) {
     console.error("Error loading submitted white cards:", error);
     return;
   }
-
+  
   submittedWhiteCards.value = data ?? [];
   console.log("submittedWhiteCards: ", submittedWhiteCards.value);
 }
@@ -393,6 +393,7 @@ const submitWhiteCards = async () => {
         (handCard) => !submittedIds.has(handCard.id),
       );
       myPlayedCards.value = [];
+      //here
 
       console.log("Submitted white cards successfully");
     }
@@ -539,12 +540,14 @@ onUnmounted(() => {
         <div
           v-for="play in submittedWhiteCards"
           :key="play.id"
-          @click="selectWinner(play)"
-          class="h-64 w-48 cursor-pointer rounded border-2 bg-white p-4 font-bold shadow-md transition-all hover:-translate-y-2"
+          @click="isCzar && selectWinner(play)"
+          class="h-64 w-48 rounded border-2 bg-white p-4 font-bold shadow-md transition-all"
           :class="
             winner?.winnerId === play.user_id
               ? 'border-green-500 bg-green-50'
-              : 'border-gray-200 hover:border-blue-400'
+              : isCzar
+                ? 'cursor-pointer border-gray-200 hover:-translate-y-2 hover:border-blue-400'
+                : 'cursor-default border-gray-200'
           "
         >
           <div
@@ -558,7 +561,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Player Hand -->
-      <div v-if="!isCzar">
+      <div v-if="!isCzar && roundStatus === 'round_start'" class="bg-white rounded shadow-md p-6">
         <h3
           class="mb-4 text-center text-sm font-semibold uppercase tracking-wider text-gray-500"
         >
@@ -594,7 +597,7 @@ onUnmounted(() => {
     </div>
 
     <div
-      v-if="gameStarted && !isCzar"
+      v-if="gameStarted && !isCzar && roundStatus === 'round_start'"
       class="fixed bottom-8 flex items-center space-x-4"
     >
       <button
