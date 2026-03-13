@@ -74,10 +74,6 @@
       </template>
     </div>
     <h1 class="text-4xl font-bold mb-2">Cards Against Humanity</h1>
-    <p class="text-gray-500 mb-8">
-      <span v-if="user">Playing as: <span class="font-semibold text-gray-700">{{ user.user_metadata.full_name }}</span></span>
-      <span v-else>Playing as: Guest</span>
-    </p>
 
     <div class="bg-white p-8 rounded shadow-md w-96">
       <h2 class="text-xl font-semibold mb-4">Start new Game</h2>
