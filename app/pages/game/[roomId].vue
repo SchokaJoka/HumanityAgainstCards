@@ -1,377 +1,476 @@
-<script setup>
-import { useAppSupabaseClient } from '~/utils/supabase'
+<script setup lang="ts">
+import { useCards } from "~/composables/useCards";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
-const supabase = useAppSupabaseClient()
+const user = useSupabaseUser();
+const supabase = useSupabaseClient();
+const { getCardSets, getCardsFromSets } = useCards();
 
-const route = useRoute()
-const roomCode = String(route.params.roomId ?? '').toUpperCase()
+const route = useRoute();
+const roomCode = String(route.params.roomId ?? "").toUpperCase();
+const roomId = ref<string | null>(null);
+
+let gameChannel = ref<RealtimeChannel | null>(null);
 
 // Game state
-const players = ref([])
-const gameState = ref(null)
-const authError = ref('')
-const currentPlayerId = ref(null)
-const currentRoomDbId = ref(null)
-const isLeaving = ref(false)
-const gameStarted = ref(false)
-const currentCzarIndex = ref(null)
+const players = ref([]);
+const authError = ref("");
+const playerId = ref<string | null>(null);
+const isLeaving = ref(false);
+const gameStarted = ref(false);
+const currentCzarIndex = ref(null);
+const playerHandCards = ref([]);
+
+// CAH specific state
+const hand = ref([]);
+const collectionCards = ref<any>({});
+const blackCard = ref({});
+const playedCards = ref([]); // Cards played by others this round
+const myPlayedCard = ref<any[]>([]);
+const winner = ref(null);
+const roundStatus = ref("lobby"); // LOBBY, SELECTION, JUDGING, WINNER
+const scores = ref({});
+
+const gameState = ref({});
 
 // First player in join order acts as game master.
-const currentGameMasterUserId = computed(() => {
-    const firstPlayer = players.value[0]
-    return firstPlayer?.user_id ?? null
-})
+const gameMasterId = computed(() => {
+  const firstPlayer = players.value[0];
+  return firstPlayer?.user_id ?? null;
+});
 
 // True when this client is the current game master.
-const isCurrentPlayerGameMaster = computed(() => {
-    return !!currentPlayerId.value && currentPlayerId.value === currentGameMasterUserId.value
-})
+const isGameMaster = computed(() => {
+  return !!playerId.value && playerId.value === gameMasterId.value;
+});
 
 // User id of the active czar for the current round.
-const currentCzarUserId = computed(() => {
-    if (!gameStarted.value || currentCzarIndex.value === null) {
-        return null
-    }
-
-    const currentPlayer = players.value[currentCzarIndex.value]
-    return currentPlayer?.user_id ?? null
-})
+const czarId = computed(() => {
+  if (gameStarted.value) {
+    return gameState.value.czar_id ?? null;
+  }
+  return null;
+});
 
 // True when this client is the active czar.
-const isCurrentPlayerCzar = computed(() => {
-    return !!currentPlayerId.value && currentPlayerId.value === currentCzarUserId.value
-})
+const isCzar = computed(() => {
+  return !!playerId.value && playerId.value === czarId.value;
+});
 
-let gameChannel
+onMounted(async () => {
 
+  // Look up the room by code and get its ID
+  // ===============================================================
+  const { data: roomData } = await supabase
+    .from("rooms")
+    .select("id, code, metadata")
+    .eq("code", roomCode)
+    .maybeSingle();
+
+  if (!roomData) {
+    authError.value = "Room does not exist.";
+    return;
+  }
+
+  roomId.value = roomData.id;
+  // ===============================================================
+
+  // Authentication
+  // ===============================================================
+  if (!user.value) {
+    navigateTo("/login?redirect=joinGame&roomCode=" + roomCode);
+
+  } else {
+    console.log("Existing user session found:", user.value);
+    playerId.value = user.value.sub;
+  }
+  // ===============================================================
+
+  // Add player to room_members table (or mark active if rejoining)
+  // ===============================================================
+  if (!playerId.value || !roomId.value) {
+    authError.value = "Missing player or room ID.";
+
+    console.log("playerId:", playerId.value);
+    console.log("roomId:", roomId.value);
+    return;
+  }
+
+  const { error } = await supabase.from("room_members").upsert(
+    {
+      room_id: roomId.value,
+      user_id: playerId.value,
+      role: "player",
+      is_active: true,
+      left_at: null,
+      joined_at: new Date().toISOString(),
+    },
+    { onConflict: "room_id,user_id" },
+  );
+
+  if (error) {
+    authError.value = "Failed to join room.";
+    console.error("Error joining room:", error);
+    return;
+  }
+  // ===============================================================
+
+
+  // Join the realtime channel for this room by room ID
+  // ===============================================================
+  gameChannel.value = supabase.channel(`${roomCode}`, {
+    config: { broadcast: { self: true }, presence: { key: playerId.value } },
+  });
+
+  if (!gameChannel.value) {
+    authError.value = "Failed to join game channel.";
+    return;
+  }
+  // ===============================================================
+
+  // Set up realtime listeners for presence and game state changes
+  // ===============================================================
+  gameChannel.value.on("presence", { event: "sync" }, () => {
+    const newState = gameChannel.value.presenceState();
+
+    if (!newState) {
+      authError.value = "Failed to get presence state.";
+      return;
+    }
+
+    players.value = Object.keys(newState)
+      .map((key) => newState[key][0])
+      .sort((a, b) => (a.joined_at ?? 0) - (b.joined_at ?? 0));
+  });
+
+  gameChannel.value.on(
+    "broadcast",
+    { event: "cards_dealt" },
+    async () => {
+      console.log("[BROADCAST] cards_dealt");
+      const { data } = await supabase
+        .from("hand_cards")
+        .select("*")
+        .eq("room_id", roomId.value)
+        .eq("user_id", playerId.value);
+      playerHandCards.value = data ?? [];
+      console.log("playerHandCards:", playerHandCards.value);
+    },
+  );
+
+  gameChannel.value.on(
+    "broadcast",
+    { event: "game_initialize" },
+    async (body) => {
+      console.log("[BROADCAST] game_initialize: ", body);
+      collectionCards.value = await supabase
+        .from("cards")
+        .select("*")
+        .eq("collection_id", body.payload.set_id);
+      console.log("collectionCards:", collectionCards.value);
+    },
+  );
+
+  gameChannel.value.on("broadcast", { event: "game_start" }, () => {
+    gameStarted.value = true;
+  });
+
+  gameChannel.value.on(
+    "postgres_changes",
+    {
+      event: "UPDATE",
+      schema: "public",
+      table: "rooms",
+      filter: `id=eq.${roomId.value}`,
+    },
+    (payload) => {
+      console.log("[POSTGRES CHANGES] rooms updated: ", payload);
+      handleGameStateChanges(payload.new);
+    },
+  );
+
+  gameChannel.value.subscribe(async (status) => {
+    if (status === "SUBSCRIBED") {
+      await gameChannel.value.track({
+        user_id: playerId.value,
+        user_name: user.value.user_metadata.full_name || "Guest",
+        status: "playing",
+        joined_at: Date.now(),
+      });
+    }
+  });
+  // ===============================================================
+
+  if (roomData.metadata?.round_status !== "lobby") {
+    // Game already in progress, sync to current state
+    const { data: handCardsData } = await supabase
+      .from("hand_cards")
+      .select("*")
+      .eq("room_id", roomId.value)
+      .eq("user_id", playerId.value);
+    playerHandCards.value = handCardsData ?? [];
+
+    console.log("playerHandCards:", playerHandCards.value);
+
+    collectionCards.value = await supabase
+      .from("cards")
+      .select("*")
+      .eq("collection_id", roomData.metadata.set_id);
+
+    gameStarted.value = true;
+    roundStatus.value = roomData.metadata.round_status;
+    blackCard.value = roomData.metadata.black_card;
+
+    console.log("collectionCards:", collectionCards.value);
+  }
+
+  // // Load existing moves to catch up
+  // const { data: moves } = await supabase
+  //     .from('game_moves')
+  //     .select('*')
+  //     .eq('room_id', existingRoom.id)
+  //     .order('seq', { ascending: true })
+
+  // if (moves && moves.length > 0) {
+  //     for (const move of moves) {
+  //         await handleMove(move)
+  //     }
+  // }
+});
 
 // ACTION - Start game
 const startGame = async () => {
-    if (!gameChannel || players.value.length === 0 || !isCurrentPlayerGameMaster.value) {
-        console.log('Cannot start game: No channel, no players, or current player is not game master')
-        return
-    }
+  if (!gameChannel.value || players.value.length < 2 || !isGameMaster.value) {
+    if (players.value.length < 2)
+      authError.value = "Need at least 2 players to start.";
+    return;
+  }
 
-    await gameChannel.send({
-        type: 'broadcast',
-        event: 'game_control',
-        payload: {
-            action: 'start',
-            czarIndex: 0
-        }
-    })
+  // Fetch available card sets and pick the first one
+  const sets = await getCardSets();
+  if (!sets || sets.length === 0) {
+    authError.value = "No card sets available.";
+    return;
+  }
+
+  gameChannel.value.send({
+    type: "broadcast",
+    event: "game_initialize",
+    payload: { set_id: sets[0].id }, // For now we just hardcode a set, but you could add a UI to select one
+  });
+
+  gameChannel.value.send({
+    type: "broadcast",
+    event: "game_start",
+  });
+
+  // Get the current session token to authorise the edge function call
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) {
+    authError.value = "Not authenticated.";
+    return;
+  }
+
+  const { data: edgeInitializeData } = await supabase.functions.invoke(
+    "initialize_game",
+    {
+      method: "POST",
+      body: { set_id: sets[0].id, room_id: roomId.value, cardsPerPlayer: 8 },
+    },
+  );
+
+  if (!edgeInitializeData) {
+    authError.value = "Failed to assign hand cards.";
+    return;
+  }
+
+  gameChannel.value.send({
+    type: "broadcast",
+    event: "cards_dealt",
+  });
+};
+
+async function handleGameStateChanges(newState: object) {
+  gameState.value = newState.metadata;
+
+  if (newState.metadata.round_status === "round_start") {
+    handleRoundStart(newState);
+  }
+
+  console.log("Czar ID: ", czarId.value);
+  console.log("IsCzar: ", isCzar.value);
 }
 
-// ACTION - Move to next czar/round
-const goToNextCzar = async () => {
-    if (!gameChannel || !gameStarted.value || players.value.length === 0 || !isCurrentPlayerCzar.value) {
-        return
-    }
-
-    const previousIndex = currentCzarIndex.value ?? -1
-    const nextIndex = (previousIndex + 1) % players.value.length
-
-    await gameChannel.send({
-        type: 'broadcast',
-        event: 'game_control',
-        payload: {
-            action: 'next',
-            czarIndex: nextIndex
-        }
-    })
+async function handleRoundStart(newState: object) {
+  roundStatus.value = "round_start";
+  blackCard.value = newState.metadata.black_card;
+  console.log("Black card for this round:", blackCard.value);
 }
 
-const markMemberInactive = async () => {
-    return 
-}
+const submitWhiteCards = async () => {
+
+};
+
+const chooseCard = async (card) => {
+  if (isCzar.value) return;
+  const idx = myPlayedCard.value.findIndex((c) => c.id === card.id);
+  if (idx === -1) {
+    myPlayedCard.value.push(card);
+  } else {
+    myPlayedCard.value.splice(idx, 1);
+  }
+};
 
 const leaveRoom = async () => {
-    await navigateTo('/')
-}
+  const { error } = await supabase
+    .from("room_members")
+    .delete()
+    .eq("room_id", roomId.value)
+    .eq("user_id", playerId.value);
 
-const handlePageHide = () => {
+  if (error) {
+    console.error("Error leaving room:", error);
+    return;
+  }
 
-}
+  isLeaving.value = true;
+  await navigateTo("/");
+};
 
-onBeforeRouteLeave(() => {
-    
-
-})
-
-onMounted(async () => {
-    authError.value = ''
-    window.addEventListener('pagehide', handlePageHide)
-
-    const { data: currentAuthData } = await supabase.auth.getUser()
-    let currentUser = currentAuthData.user
-
-    if (!currentUser) {
-        const { data: anonymousAuthData, error: anonymousAuthError } = await supabase.auth.signInAnonymously()
-
-        if (anonymousAuthError) {
-            authError.value = 'Could not create guest session. Please refresh and try again.'
-            console.error('Anonymous auth failed:', anonymousAuthError)
-            return
-        }
-
-        currentUser = anonymousAuthData.user
-    }
-
-
-
-    if (!currentUser?.id) {
-        authError.value = 'No player identity available. Please refresh and try again.'
-        return
-    }
-
-    console.log('Signed in anonymously as guest user:', currentUser)
-
-
-    const playerId = currentUser.id
-    const playerType = currentUser.is_anonymous ? 'guest' : 'user'
-    const joinedAt = Date.now()
-
-    currentPlayerId.value = playerId
-
-    // CREATE or JOIN a channel
-    gameChannel = supabase.channel(`${roomCode}`, {
-        config: {
-            broadcast: {
-                self: true
-            },
-            presence: {
-                key: playerId
-            }
-        }
-    })
-
-    console.log("Created game channel:", gameChannel)
-
-    // 2. Listen for Presence (Who is in the room?)
-    gameChannel.on('presence', { event: 'sync' }, () => {
-        const newState = gameChannel.presenceState()
-        
-        players.value = Object.keys(newState)
-            .map(key => newState[key][0])
-            .sort((a, b) => {
-                const firstJoinedAt = Number(a.joined_at ?? 0)
-                const secondJoinedAt = Number(b.joined_at ?? 0)
-
-                if (firstJoinedAt !== secondJoinedAt) {
-                    return firstJoinedAt - secondJoinedAt
-                }
-
-                return a.user_id.localeCompare(b.user_id)
-            })
-
-        if (players.value.length === 0) {
-            gameStarted.value = false
-            currentCzarIndex.value = null
-        }
-        else if (gameStarted.value && (currentCzarIndex.value === null || currentCzarIndex.value >= players.value.length)) {
-            currentCzarIndex.value = 0
-        }
-    })
-
-    // 3. Listen for Broadcasts (Quick actions, e.g., drawing a card)
-    gameChannel.on('broadcast', { event: 'card_played' }, (payload) => {
-        console.log('Opponent played a card!', payload)
-        // Update local UI
-    })
-
-    // Listen for game control events (start, next round, etc.)
-    gameChannel.on('broadcast', { event: 'game_control' }, (payload) => {
-        const action = payload?.payload?.action
-        const czarIndex = payload?.payload?.czarIndex
-
-        if (typeof czarIndex !== 'number') {
-            return
-        }
-
-        if (action === 'start') {
-            gameStarted.value = true
-            currentCzarIndex.value = czarIndex
-            return
-        }
-
-        if (action === 'next') {
-            gameStarted.value = true
-            currentCzarIndex.value = czarIndex
-        }
-    })
-
-    // 5. Subscribe to the channel
-    gameChannel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-            // Track authenticated users and guests in Presence
-            await gameChannel.track({
-                user_id: playerId,
-                player_type: playerType,
-                status: 'playing',
-                joined_at: joinedAt
-            })
-        }
-    })
-})
+const markMemberInactive = async () => {
+  if (!playerId.value || !roomId.value) return;
+  await supabase
+    .from("room_members")
+    .update({ is_active: false, left_at: new Date().toISOString() })
+    .eq("room_id", roomId.value)
+    .eq("user_id", playerId.value);
+};
 
 onUnmounted(() => {
-    window.removeEventListener('pagehide', handlePageHide)
-    void markMemberInactive()
-
-    // Clean up the WebSocket connection when the user leaves the page
-    if (gameChannel) {
-        supabase.removeChannel(gameChannel)
-    }
-})
+  if (!isLeaving.value) markMemberInactive();
+  if (gameChannel.value) supabase.removeChannel(gameChannel.value);
+});
 </script>
 
 <template>
-    <div class="mx-auto max-w-2xl p-4 sm:p-6">
-        <div class="rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
-            <h1 class="text-xl font-semibold">Game Room</h1>
-            <p class="mt-1 text-sm text-gray-600">Room Code: {{ roomCode }}</p>
-
-            <div class="mt-5">
-                <h2 class="text-sm font-medium text-gray-700">Players in this room</h2>
-
-                <ul class="mt-2 space-y-2">
-                    <li v-for="player in players" :key="player.user_id"
-                        class="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2 text-sm">
-                        <span class="font-medium text-gray-900">
-                            {{ player.user_id }}
-                            <span v-if="currentPlayerId === player.user_id" class="ml-2 text-xs font-semibold text-emerald-700">
-                                (You)
-                            </span>
-                            <span v-if="currentGameMasterUserId === player.user_id" class="ml-2 text-xs font-semibold text-amber-700">
-                                (Game Master)
-                            </span>
-                        </span>
-                        <span class="text-gray-600">
-                            {{ player.status }}
-                            <span v-if="gameStarted && currentCzarUserId === player.user_id" class="ml-2 font-semibold text-indigo-600">
-                                CZAR
-                            </span>
-                        </span>
-                    </li>
-                </ul>
-
-                <p v-if="players.length === 0" class="mt-2 text-sm text-gray-500">
-                    Waiting for players to join...
-                </p>
-
-                <p v-if="authError" class="mt-2 text-sm text-red-600">
-                    {{ authError }}
-                </p>
-
-                <button @click="leaveRoom"
-                    class="mt-4 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                    Leave Room
-                </button>
-
-                <div class="mt-3 flex gap-2">
-                    <button @click="startGame" :disabled="players.length === 0 || !isCurrentPlayerGameMaster"
-                        class="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60">
-                        Start Game
-                    </button>
-
-                    <button @click="goToNextCzar" :disabled="!gameStarted || players.length === 0 || !isCurrentPlayerCzar"
-                        class="rounded-md bg-slate-700 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-60">
-                        Next
-                    </button>
-                </div>
-            </div>
+  <div class="flex flex-col items-center min-h-screen bg-gray-100 p-6">
+    <!-- Header Card -->
+    <div class="bg-white rounded shadow-md w-full max-w-2xl p-6 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h1 class="text-2xl font-bold">Room: {{ roomCode }}</h1>
+          <p class="text-sm text-gray-500">
+            {{ players.length }} players online
+          </p>
+          <p class="text-sm text-blue-500">
+            ({{ roundStatus }})
+          </p>
         </div>
+        <div class="flex gap-2">
+          <button v-if="!gameStarted && isGameMaster" @click="startGame"
+            class="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600">
+            Start Game
+          </button>
+          <button @click="leaveRoom"
+            class="px-4 py-2 text-gray-500 border border-gray-300 text-sm rounded hover:bg-gray-50">
+            Leave
+          </button>
+        </div>
+      </div>
+
+      <!-- Player List -->
+      <div class="flex flex-wrap gap-2">
+        <div v-for="player in players" :key="player.user_id"
+          class="flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium" :class="czarId === player.user_id
+            ? 'bg-blue-50 border-blue-200 text-blue-700'
+            : 'bg-gray-50 border-gray-200 text-gray-600'
+            ">
+          <span>{{ player.user_name }}</span>
+          <span v-if="czarId === player.user_id" class="font-bold">CZAR</span>
+          <span class="text-gray-400">({{ scores[player.user_id] || 0 }})</span>
+        </div>
+      </div>
     </div>
 
-    <!-- Game UI goes here -->
+    <p v-if="authError" class="text-red-500 text-sm mb-4">{{ authError }}</p>
+
+    <!-- Game Area -->
+    <div v-if="gameStarted" class="w-full max-w-2xl space-y-6">
+      <!-- Black Card -->
+      <div class="flex justify-center">
+        <div v-if="blackCard" class="relative h-64 w-48 rounded bg-gray-900 p-6 text-lg font-bold text-white shadow-md">
+          <div>
+            {{ blackCard.text }}
+          </div>
+          <div class="absolute bottom-4 right-4 text-xs">STUW2</div>
+        </div>
+      </div>
+
+      <!-- Status Message -->
+      <div class="bg-white rounded shadow-md p-6 text-center">
+        <p v-if="roundStatus === 'round_start'" class="text-lg font-medium text-gray-700">
+          {{
+            isCzar
+              ? "Waiting for players to pick..."
+              : myPlayedCard.length > 0
+                ? "Waiting for others..."
+                : "Pick a white card!"
+          }}
+        </p>
+        <p v-if="roundStatus === 'JUDGING'" class="text-lg font-medium text-blue-600">
+          {{ isCzar ? "Pick the winner!" : "The Czar is judging..." }}
+        </p>
+        <div v-if="roundStatus === 'WINNER'" class="space-y-3">
+          <p class="text-xl font-bold text-green-600">Winner found!</p>
+          <button v-if="isGameMaster" @click="nextRound"
+            class="px-6 py-2 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600">
+            Next Round
+          </button>
+        </div>
+      </div>
+
+      <!-- Judging Area -->
+      <div v-if="roundStatus === 'JUDGING' || roundStatus === 'WINNER'" class="flex flex-wrap justify-center gap-4">
+        <div v-for="(play, idx) in playedCards" :key="idx" @click="selectWinner(play)"
+          class="h-64 w-48 cursor-pointer rounded border-2 bg-white p-4 font-bold shadow-md transition-all hover:-translate-y-2"
+          :class="winner?.winnerId === play.playerId
+            ? 'border-green-500 bg-green-50'
+            : 'border-gray-200 hover:border-blue-400'
+            ">
+          {{ play.card.text }}
+        </div>
+      </div>
+
+      <!-- Player Hand -->
+      <div v-if="!isCzar">
+        <h3 class="mb-4 text-center text-sm font-semibold uppercase tracking-wider text-gray-500">
+          Your Hand
+        </h3>
+        <div class="flex flex-wrap justify-center gap-3">
+          <div v-for="card in playerHandCards" :key="card.id" @click="chooseCard(card)"
+            class="h-48 w-36 cursor-pointer rounded border border-gray-200 bg-white p-4 text-sm font-bold shadow-sm transition-all hover:-translate-y-2 hover:border-blue-400 hover:shadow-md"
+            :class="myPlayedCard.some((c) => c.id === card.id) ? 'opacity-50 grayscale' : ''">
+            {{
+              (collectionCards.data || []).find((c) => c.id === card.card_id)
+                ?.text || "Loading..."
+            }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Waiting for game to start -->
+    <div v-else class="bg-white rounded shadow-md w-full max-w-2xl p-12 flex flex-col items-center justify-center">
+      <p class="text-gray-500">Waiting for the Game Master to start...</p>
+    </div>
+
+    <div v-if="gameStarted && !isCzar" class="fixed bottom-8 flex items-center space-x-4">
+      <button @click="submitWhiteCards"
+        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
+        Submit
+      </button>
+    </div>
+  </div>
 </template>
-
-<script>
-    // ==================================================================
-    // ROOM DATABASE CHECK
-    // ==================================================================
-    /*
-    const { data: existingRoom, error: roomLookupError } = await supabase
-      .from('rooms')
-      .select('id,code')
-      .eq('code', roomCode)
-      .maybeSingle()
-  
-    if (roomLookupError) {
-      authError.value = 'Could not verify room. Please refresh and try again.'
-      console.error('Room lookup failed:', roomLookupError)
-      return
-    }
-  
-    if (!existingRoom) {
-      authError.value = 'Room does not exist.'
-      return
-    }
-  
-    const roomDbId = existingRoom.id
-    currentPlayerId.value = playerId
-    currentRoomDbId.value = roomDbId
-    isLeaving.value = false
-  
-    const { error: memberUpsertError } = await supabase
-      .from('room_members')
-      .upsert(
-        {
-          room_id: roomDbId,
-          user_id: playerId,
-          role: 'player',
-          is_active: true,
-          left_at: null
-        },
-        {
-          onConflict: 'room_id,user_id'
-        }
-      )
-  
-    if (memberUpsertError) {
-      authError.value = 'Could not save room membership. Please refresh and try again.'
-      console.error('Room member upsert failed:', memberUpsertError)
-      return
-    }
-    */
-
-    /*
-    // 4. Listen for Database Changes (Authoritative game state)
-    // Make sure you enable Realtime for the 'game_moves' table in Supabase dashboard
-    gameChannel.on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'game_moves', filter: `room_id=eq.${roomDbId}` },
-        (payload) => {
-            console.log('New move recorded in DB:', payload.new)
-            // Process the move
-        }
-    )
-        
-    */
-
-    /*
-
-    if (!currentPlayerId.value || !currentRoomDbId.value || isLeaving.value) {
-        return
-    }
-
-    isLeaving.value = true
-
-    const { data, error } = await supabase
-        .from('room_members')
-        .update({
-            is_active: false,
-            left_at: new Date().toISOString()
-        })
-        .eq('room_id', currentRoomDbId.value)
-        .eq('user_id', currentPlayerId.value)
-
-    if (error) {
-        console.error('Failed to mark member inactive:', error)
-    }
-    else {
-        console.log('Marked member as inactive successfully', data)
-    }
-
-    */
-</script>
