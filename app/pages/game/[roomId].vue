@@ -518,7 +518,6 @@ onUnmounted(() => {
           <div>
             {{ blackCard.text }}
           </div>
-          <div class="absolute bottom-4 right-4 text-xs">STUW2</div>
         </div>
       </div>
 
