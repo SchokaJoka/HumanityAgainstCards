@@ -11,28 +11,24 @@ const roomCode = String(route.params.roomId ?? "").toUpperCase();
 const roomId = ref<string | null>(null);
 
 let gameChannel = ref<RealtimeChannel | null>(null);
+const gameState = ref({});
+const roundStatus = ref("lobby");
 
-// Game state
+
+
 const players = ref([]);
-const authError = ref("");
 const playerId = ref<string | null>(null);
 const isLeaving = ref(false);
 const gameStarted = ref(false);
-const currentCzarIndex = ref(null);
-const playerHandCards = ref([]);
 
-// CAH specific state
-const hand = ref([]);
 const collectionCards = ref<any>({});
+const playerHandCards = ref([]);
 const blackCard = ref({});
-const playedCards = ref([]); // Cards played by others this round
 const myPlayedCards = ref<any[]>([]);
 const submittedWhiteCards = ref<any[]>([]);
 const winner = ref(null);
-const roundStatus = ref("lobby"); // LOBBY, SELECTION, JUDGING, WINNER
-const scores = ref({});
-
-const gameState = ref({});
+    
+const authError = ref("");
 
 // First player in join order acts as game master.
 const gameMasterId = computed(() => {
@@ -478,7 +474,7 @@ onUnmounted(() => {
         >
           <span>{{ player.user_name }}</span>
           <span v-if="czarId === player.user_id" class="font-bold">CZAR</span>
-          <span class="text-gray-400">({{ scores[player.user_id] || 0 }})</span>
+          <span class="text-gray-400">({{ 0 }})</span>
         </div>
       </div>
     </div>
