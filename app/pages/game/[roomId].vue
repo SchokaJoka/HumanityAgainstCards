@@ -522,11 +522,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col items-center min-h-screen bg-gray-100 p-6">
-    <!-- Header Card -->
-    <div class="bg-white rounded shadow-md w-full max-w-2xl p-6 mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <div>
+  <main class="flex flex-col items-center min-h-screen scroll-x-">
+    <!-- Lobby Info Section -->
+    <section class="w-full max-w-svw p-6 mb-6 pt-[max(env(safe-area-inset-top),1.5rem)]">
+      <div class="flex items-start justify-between h-fit mb-4">
+        <div class="">
           <h1 class="text-2xl font-bold">Room: {{ roomCode }}</h1>
           <p class="text-sm text-gray-500">
             {{ players.length }} players online
@@ -534,7 +534,7 @@ onUnmounted(() => {
           <p class="text-sm text-blue-500">({{ roundStatus }})</p>
           <p class="text-sm text-blue-500">round: {{ round }}</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex h-full gap-2 justify-start">
           <button v-if="!gameStarted && isGameMaster" @click="startGame"
             class="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600">
             Start Game
@@ -558,12 +558,12 @@ onUnmounted(() => {
           <span class="text-gray-400">({{ player.score }})</span>
         </div>
       </div>
-    </div>
+    </section>
 
     <p v-if="authError" class="text-red-500 text-sm mb-4">{{ authError }}</p>
 
     <!-- Game Area -->
-    <div v-if="gameStarted" class="w-full max-w-2xl space-y-6">
+    <section v-if="gameStarted" class="w-full max-w-2xl space-y-6">
       <!-- Black Card -->
       <div class="flex justify-center">
         <div v-if="blackCard" class="relative h-64 w-48 rounded bg-gray-900 p-6 text-lg font-bold text-white shadow-md">
@@ -642,19 +642,19 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
     <!-- Waiting for game to start -->
-    <div v-else class="bg-white rounded shadow-md w-full max-w-2xl p-12 flex flex-col items-center justify-center">
+    <section v-else class="bg-white rounded shadow-md w-full max-w-2xl p-12 flex flex-col items-center justify-center">
       <p class="text-gray-500">Waiting for the Game Master to start...</p>
-    </div>
+    </section>
 
-    <div v-if="gameStarted && !isCzar && roundStatus === 'round_start' && !isWhiteCardsSubmitted"
+    <section v-if="gameStarted && !isCzar && roundStatus === 'round_start' && !isWhiteCardsSubmitted"
       class="fixed bottom-8 flex items-center space-x-4">
       <button @click="submitWhiteCards"
         class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
         Submit
       </button>
-    </div>
-  </div>
+    </section>
+  </main>
 </template>
