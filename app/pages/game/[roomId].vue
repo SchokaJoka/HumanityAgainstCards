@@ -624,25 +624,17 @@ onUnmounted(() => {
         <p v-if="roundStatus === 'round_submit'" class="font-medium">
           {{ isCzar ? "Pick the winner!" : "The Czar is judging..." }}
         </p>
-        <div v-if="roundStatus === 'round_end'" class="space-y-3">
-          <p class="text-lg font-medium text-gray-700">
-            {{ winnerUsername ? `${winnerUsername} wins the round!` : "Couldn't determine winner." }}
-          </p>
-          <div class="h-64 w-48 rounded border-2 bg-white p-4 font-bold shadow-md transition-all">
-            <div v-for="cardId in winnerCards" class="mb-2 rounded bg-gray-50 p-2 text-sm">
-              {{ getCardTextById(cardId) }}
-            </div>
-          </div>
-          <button v-if="isGameMaster" @click="nextRound"
-            class="px-6 py-2 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600">
-            Next Round
-          </button>
-        </div>
       </div>
 
       <!-- Black Card -->
-      <div class="flex justify-center">
-        <div v-if="blackCard" class="relative h-64 w-52 rounded-lg bg-gray-900 p-6 text-lg font-bold text-white shadow-md">
+      <div class="flex flex-col items-center justify-center gap-4">
+        <div v-if="roundStatus === 'round_end'" class="space-y-3">
+          <p class="text-2xl font-medium text-blue-700">
+            {{ winnerUsername ? `${winnerUsername} wins the round!` : "Couldn't determine winner." }}
+          </p>
+        </div>
+        <div v-if="blackCard"
+          class="relative h-64 w-52 rounded-lg bg-gray-900 p-6 text-lg font-bold text-white shadow-md">
           <div>
             <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`">
               <span v-if="part.isGap"
@@ -652,6 +644,18 @@ onUnmounted(() => {
               <span v-else>{{ part.text }}</span>
             </span>
           </div>
+        </div>
+        <div v-if="roundStatus === 'round_end'" class="space-y-3">
+
+          <div class="h-64 w-48 rounded border-2 bg-white p-4 font-bold shadow-md transition-all">
+            <div v-for="cardId in winnerCards" class="mb-2 rounded bg-gray-50 p-2 text-sm">
+              {{ getCardTextById(cardId) }}
+            </div>
+          </div>
+          <button v-if="isGameMaster" @click="nextRound"
+            class="px-6 py-2 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600">
+            Next Round
+          </button>
         </div>
       </div>
 
@@ -675,21 +679,20 @@ onUnmounted(() => {
       </div>
 
       <!-- Player Hand -->
-      <div v-if="!isCzar && roundStatus === 'round_start' && isWhiteCardsSubmitted === false"
-        class="mt-6">
+      <div v-if="!isCzar && roundStatus === 'round_start' && isWhiteCardsSubmitted === false" class="mt-6">
         <div class="mx-1 overflow-x-auto overflow-y-visible px-1 pb-3 pt-1 [scrollbar-width:thin]">
           <div class="flex w-max min-w-full flex-nowrap gap-4 snap-x snap-mandatory">
-          <div v-for="card in playerHandCards" :key="card.id" @click="chooseCard(card)"
-            class="h-64 w-52 shrink-0 snap-start cursor-pointer rounded-lg border border-gray-200 bg-white p-4 text-sm font-bold text-gray-800 shadow-sm transition-all md:hover:-translate-y-1 md:hover:border-blue-300 md:hover:shadow-lg"
-            :class="myChosenWhiteCards.some((c) => c.id === card.id)
-              ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-200'
-              : 'bg-white'
-              ">
-            {{
-              (collectionCards.data || []).find((c) => c.id === card.card_id)
-                ?.text || "Loading..."
-            }}
-          </div>
+            <div v-for="card in playerHandCards" :key="card.id" @click="chooseCard(card)"
+              class="h-64 w-52 shrink-0 snap-start cursor-pointer rounded-lg border border-gray-200 bg-white p-4 text-sm font-bold text-gray-800 shadow-sm transition-all md:hover:-translate-y-1 md:hover:border-blue-300 md:hover:shadow-lg"
+              :class="myChosenWhiteCards.some((c) => c.id === card.id)
+                ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-200'
+                : 'bg-white'
+                ">
+              {{
+                (collectionCards.data || []).find((c) => c.id === card.card_id)
+                  ?.text || "Loading..."
+              }}
+            </div>
           </div>
         </div>
       </div>
