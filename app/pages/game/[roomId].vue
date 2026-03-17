@@ -27,7 +27,9 @@ const submittedWhiteCards = ref<any[]>([]);
 const isWhiteCardsSubmitted = ref(false);
 
 const winnerUsername = ref(null);
+const winnerUserId = ref<string | null>(null);
 const winnerCards = ref(null);
+const presenceJoinedAt = Date.now();
 
 const isLeaving = ref(false);
 const authError = ref("");
@@ -122,6 +124,47 @@ const playersWithScores = computed(() => {
   }));
 });
 
+const getPlayerDisplayStatus = (player: any) => {
+  return player.status || "unknown";
+};
+
+const myPresenceStatus = computed(() => {
+  if (!gameStarted.value || roundStatus.value === "lobby") {
+    return "waiting";
+  }
+
+  if (roundStatus.value === "round_start") {
+    if (isCzar.value) return "czar";
+    return isWhiteCardsSubmitted.value ? "submitted" : "choosing";
+  }
+
+  if (roundStatus.value === "round_submitted") {
+    return isCzar.value ? "judging" : "waiting";
+  }
+
+  if (roundStatus.value === "round_end") {
+    if (winnerUserId.value && winnerUserId.value === playerId.value) return "winner";
+    return "round end";
+  }
+
+  return "playing";
+});
+
+const trackMyStatus = async () => {
+  if (!gameChannel.value || !playerId.value || !user.value) return;
+
+  await gameChannel.value.track({
+    user_id: playerId.value,
+    user_name: user.value.user_metadata?.full_name || "Guest",
+    status: myPresenceStatus.value,
+    joined_at: presenceJoinedAt,
+  });
+};
+
+watch(myPresenceStatus, async () => {
+  await trackMyStatus();
+});
+
 const round = computed(() => {
   if (!gameState.value.round) return null;
   return gameState.value.round;
@@ -204,6 +247,9 @@ onMounted(async () => {
     players.value = Object.keys(newState)
       .map((key) => newState[key][0])
       .sort((a, b) => (a.joined_at ?? 0) - (b.joined_at ?? 0));
+
+    // console.log("[PRESENCE] presenceState:", newState);
+    // console.log("[PRESENCE] players:", players.value);
   });
 
   gameChannel.value.on("broadcast", { event: "cards_dealt" }, async () => {
@@ -270,12 +316,7 @@ onMounted(async () => {
 
   gameChannel.value.subscribe(async (status) => {
     if (status === "SUBSCRIBED") {
-      await gameChannel.value.track({
-        user_id: playerId.value,
-        user_name: user.value.user_metadata.full_name || "Guest",
-        status: "playing",
-        joined_at: Date.now(),
-      });
+      await trackMyStatus();
     }
   });
   // ===============================================================
@@ -371,6 +412,7 @@ async function handleGameStateChanges(currentMetaData: object) {
 async function handleRoundStart(currentMetaData: object) {
   gameState.value = currentMetaData;
   roundStatus.value = currentMetaData.round_status;
+  winnerUserId.value = null;
 
   const { data, error } = await supabase
     .from("room_members")
@@ -390,6 +432,7 @@ async function handleRoundStart(currentMetaData: object) {
 async function handleRoundSubmitted(currentMetaData: object) {
   gameState.value = currentMetaData;
   roundStatus.value = currentMetaData.round_status;
+  winnerUserId.value = null;
 
   const { data, error } = await supabase
     .from("room_members")
@@ -416,6 +459,8 @@ async function handleRoundSubmitted(currentMetaData: object) {
 
   isWhiteCardsSubmitted.value = false;
   myChosenWhiteCards.value = [];
+  blackCard.value = currentMetaData.black_card;
+
 
   submittedWhiteCards.value = data ?? [];
   console.log("submittedWhiteCards: ", submittedWhiteCards.value);
@@ -423,6 +468,8 @@ async function handleRoundSubmitted(currentMetaData: object) {
 
 async function handleRoundEnd(currentMetaData: object) {
   const winnerId = currentMetaData.current_winner.user_id;
+  winnerUserId.value = winnerId;
+  blackCard.value = currentMetaData.black_card;
   winnerUsername.value = players.value.find((p) => p.user_id === winnerId)?.user_name || null;
   winnerCards.value = currentMetaData.current_winner.metadata?.submitted_cards || null;
 }
@@ -586,10 +633,12 @@ onUnmounted(() => {
       <!-- Player List -->
       <div class="flex flex-row px-4 overflow-x-auto gap-2">
         <div v-for="player in playersWithScores" :key="player.user_id"
-          class="flex flex-row items-center gap-2 min-w-24 rounded-xl pl-2 pr-4 py-2 text-xs font-medium bg-gray-50"
+          class="flex flex-row items-start justify-between gap-2 min-w-28 rounded-xl p-2 text-xs font-medium border transition-all"
           :class="czarId === player.user_id
-            ? 'border-2 border-blue-200 text-blue-700'
-            : 'text-gray-600'
+            ? 'border-yellow-100 bg-yellow-100 text-yellow-700'
+            : player.status === 'submitted' 
+              ? 'border-green-50 bg-green-50 text-green-200' 
+              : 'border-gray-50 bg-gray-50 text-gray-600'
             ">
           <!-- <div
             class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold hover:bg-blue-600 transition"
@@ -597,9 +646,12 @@ onUnmounted(() => {
             {{ getInitials(player.user_name) }}
           </div> -->
           <div>
-            <p class="text-md font-bold text-gray-600">{{ player.user_name }}</p>
+            <p class="text-md font-bold transition">{{ player.user_name }}</p>
             <!-- <p v-if="czarId === player.user_id" class="font-bold">CZAR</p> -->
-            <p class="text-gray-400">{{ player.score }}</p>
+            <p class="">{{ player.score }}</p>
+          </div>
+          <div class="h-full flex items-end transition">
+            <p class="text-[0.6rem] uppercase transition">{{ getPlayerDisplayStatus(player) }}</p>
           </div>
         </div>
       </div>
@@ -608,7 +660,7 @@ onUnmounted(() => {
     <p v-if="authError" class="text-red-500 text-sm mb-4">{{ authError }}</p>
 
     <!-- Game Area -->
-    <section v-if="gameStarted" class="w-full max-w-2xl">
+    <section v-if="gameStarted" class="w-full h-full flex flex-col gap-4 max-w-2xl">
 
       <!-- Status Message -->
       <div class="bg-white rounded p-2 text-blue-500 text-2xl text-center">
@@ -621,7 +673,7 @@ onUnmounted(() => {
                 : "Pick a white card!"
           }}
         </p>
-        <p v-if="roundStatus === 'round_submit'" class="font-medium">
+        <p v-if="roundStatus === 'round_submitted'" class="font-medium">
           {{ isCzar ? "Pick the winner!" : "The Czar is judging..." }}
         </p>
       </div>
@@ -645,41 +697,46 @@ onUnmounted(() => {
             </span>
           </div>
         </div>
-        <div v-if="roundStatus === 'round_end'" class="space-y-3">
-
-          <div class="h-64 w-48 rounded border-2 bg-white p-4 font-bold shadow-md transition-all">
-            <div v-for="cardId in winnerCards" class="mb-2 rounded bg-gray-50 p-2 text-sm">
+        <div v-if="roundStatus === 'round_end'" class="w-full p-4">
+          <div class="flex flex-row items-center justify-start gap-4 bg-gray-100 p-4 rounded-lg transition-all">
+            <div v-for="(cardId, index) in winnerCards" :key="index" class="relative w-full min-h-48 max-w-36 rounded-lg shadow-lg bg-white p-3 font-medium text-sm transition-all">
               {{ getCardTextById(cardId) }}
+              <div class="absolute bottom-2 right-3 text-xs text-blue-500">
+                {{ winnerUsername }}
+              </div>
+              <div class="absolute bottom-2 left-3 text-xs text-gray-400">
+                {{ index + 1 }}
+              </div>
             </div>
           </div>
-          <button v-if="isGameMaster" @click="nextRound"
-            class="px-6 py-2 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600">
-            Next Round
-          </button>
         </div>
       </div>
 
 
 
       <!-- Judging Area -->
-      <div v-if="roundStatus === 'round_submitted'" class="flex flex-wrap justify-center gap-4">
-        <div v-for="playerSubmission in submittedWhiteCards" :key="playerSubmission.id"
+      <div v-if="roundStatus === 'round_submitted'" class="flex flex-col justify-center gap-4 p-4 h-full">
+        <div v-for="(playerSubmission, index) in submittedWhiteCards" :key="index"
           @click="isCzar && selectWinner(playerSubmission)"
-          class="h-64 w-48 rounded border-2 bg-white p-4 font-bold shadow-md transition-all" :class="winnerUsername?.winnerId === playerSubmission.user_id
-            ? 'border-green-500 bg-green-50'
-            : isCzar
-              ? 'cursor-pointer border-gray-200 hover:-translate-y-2 hover:border-blue-400'
-              : 'cursor-default border-gray-200'
+          class="flex flex-col items-start gap-4 bg-gray-100 py-4 pl-4 rounded-lg transition-all" :class="isCzar
+              ? 'md:cursor-pointer md:hover:-translate-y-2 md:hover:border-blue-400'
+              : 'cursor-default'
             ">
-          <div v-for="cardId in playerSubmission.metadata?.submitted_cards || []"
-            :key="`${playerSubmission.id}-${cardId}`" class="mb-2 rounded bg-gray-50 p-2 text-sm">
-            {{ getCardTextById(cardId) }}
+          <div class="text-xs text-gray-300">
+            {{ index + 1 }}. Submission
+          </div>
+          <div class="flex w-full flex-row items-center justify-start gap-4 bg-gray-100 transition-all">
+            <div v-for="cardId in playerSubmission.metadata?.submitted_cards || []"
+              :key="`${playerSubmission.id}-${cardId}`"
+              class="w-full min-h-48 max-w-36 rounded-lg shadow-lg bg-white p-4 font-medium text-sm transition-all">
+              {{ getCardTextById(cardId) }}
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Player Hand -->
-      <div v-if="!isCzar && roundStatus === 'round_start' && isWhiteCardsSubmitted === false" class="mt-6">
+      <div v-if="!isCzar && roundStatus === 'round_start' && isWhiteCardsSubmitted === false" class="">
         <div class="mx-1 overflow-x-auto overflow-y-visible px-1 pb-3 pt-1 [scrollbar-width:thin]">
           <div class="flex w-max min-w-full flex-nowrap gap-4 snap-x snap-mandatory">
             <div v-for="card in playerHandCards" :key="card.id" @click="chooseCard(card)"
@@ -699,13 +756,13 @@ onUnmounted(() => {
     </section>
 
     <!-- Waiting for game to start -->
-    <section v-else class="bg-white rounded shadow-md w-full max-w-2xl p-12 flex flex-col items-center justify-center">
-      <p class="text-gray-500">Waiting for the Game Master to start...</p>
+    <section v-if="!isGameMaster && !gameStarted" class="bg-white rounded w-full max-w-2xl p-12 flex flex-col items-center justify-center">
+      <p class="text-blue-500">Waiting for the Game Master to start...</p>
     </section>
 
     <!-- Submit Button -->
     <section v-if="gameStarted && !isCzar && roundStatus === 'round_start' && !isWhiteCardsSubmitted"
-      class="fixed bottom-8 flex items-center space-x-4">
+      class="fixed bottom-8 flex items-center space-x-4 transition-all">
       <button @click="submitWhiteCards"
         class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
         Submit
@@ -713,10 +770,18 @@ onUnmounted(() => {
     </section>
 
     <!-- Start Game Button -->
-    <section v-if="!gameStarted && isGameMaster" class="fixed bottom-8 flex items-center space-x-4">
+    <section v-if="!gameStarted && isGameMaster" class="fixed bottom-8 flex items-center space-x-4 transition-all">
       <button @click="startGame"
         class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
         Start Game
+      </button>
+    </section>
+
+    <!-- Next Round Button -->
+    <section v-if="roundStatus === 'round_end' && isCzar" class="fixed bottom-8 flex items-center space-x-4 transition-all">
+      <button @click="nextRound"
+        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
+        Next Round
       </button>
     </section>
   </main>
