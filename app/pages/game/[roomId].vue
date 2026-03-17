@@ -757,7 +757,7 @@ onUnmounted(() => {
 
     <!-- Submit Button -->
     <section v-if="gameStarted && !isCzar && roundStatus === 'round_start' && !isWhiteCardsSubmitted"
-      class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
+      class="absolute bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
       <button @click="submitWhiteCards"
         class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
         Submit
@@ -765,7 +765,7 @@ onUnmounted(() => {
     </section>
 
     <!-- Start Game Button -->
-    <section v-if="!gameStarted && isGameMaster" class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
+    <section v-if="!gameStarted && isGameMaster" class="absolute bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
       <button @click="startGame"
         class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
         Start Game
@@ -773,7 +773,7 @@ onUnmounted(() => {
     </section>
 
     <!-- Next Round Button -->
-    <section v-if="roundStatus === 'round_end' && isCzar" class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
+    <section v-if="roundStatus === 'round_end' && isCzar" class="absolute bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
       <button @click="nextRound"
         class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
         Next Round
