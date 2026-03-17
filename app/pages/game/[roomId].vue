@@ -33,6 +33,9 @@ const presenceJoinedAt = Date.now();
 
 const isLeaving = ref(false);
 const authError = ref("");
+const isSubmittingWhiteCards = ref(false);
+const isStartingGame = ref(false);
+const isStartingNextRound = ref(false);
 
 // First player in join order acts as game master.
 const gameMasterId = computed(() => {
@@ -353,41 +356,49 @@ const startGame = async () => {
     return;
   }
 
-  // Fetch available card sets and pick the first one
-  const sets = await getCardCollections();
-  if (!sets || sets.length === 0) {
-    authError.value = "No card sets available.";
-    return;
+  if (isStartingGame.value) return;
+  isStartingGame.value = true;
+
+  try {
+
+    // Fetch available card sets and pick the first one
+    const sets = await getCardCollections();
+    if (!sets || sets.length === 0) {
+      authError.value = "No card sets available.";
+      return;
+    }
+
+    gameChannel.value.send({
+      type: "broadcast",
+      event: "game_initialize",
+      payload: { set_id: sets[0].id }, // For now we just hardcode a set, but you could add a UI to select one
+    });
+
+    gameChannel.value.send({
+      type: "broadcast",
+      event: "game_start",
+    });
+
+    const { data: edgeInitializeData } = await supabase.functions.invoke(
+      "initialize_game",
+      {
+        method: "POST",
+        body: { set_id: sets[0].id, room_id: roomId.value, cardsPerPlayer: 8 },
+      },
+    );
+
+    if (!edgeInitializeData) {
+      authError.value = "Failed to assign hand cards.";
+      return;
+    }
+
+    gameChannel.value.send({
+      type: "broadcast",
+      event: "cards_dealt",
+    });
+  } finally {
+    isStartingGame.value = false;
   }
-
-  gameChannel.value.send({
-    type: "broadcast",
-    event: "game_initialize",
-    payload: { set_id: sets[0].id }, // For now we just hardcode a set, but you could add a UI to select one
-  });
-
-  gameChannel.value.send({
-    type: "broadcast",
-    event: "game_start",
-  });
-
-  const { data: edgeInitializeData } = await supabase.functions.invoke(
-    "initialize_game",
-    {
-      method: "POST",
-      body: { set_id: sets[0].id, room_id: roomId.value, cardsPerPlayer: 8 },
-    },
-  );
-
-  if (!edgeInitializeData) {
-    authError.value = "Failed to assign hand cards.";
-    return;
-  }
-
-  gameChannel.value.send({
-    type: "broadcast",
-    event: "cards_dealt",
-  });
 };
 
 async function handleGameStateChanges(currentMetaData: object) {
@@ -494,32 +505,38 @@ const chooseCard = async (card) => {
 
 const submitWhiteCards = async () => {
   if (myChosenWhiteCards.value.length === numberOfCardsToPlay.value) {
-    const { data, error } = await supabase.functions.invoke(
-      "submit_white_cards",
-      {
-        method: "POST",
-        body: {
-          czar_id: czarId.value,
-          user_id: playerId.value,
-          room_id: roomId.value,
-          submitted_cards: myChosenWhiteCards.value,
+    if (isSubmittingWhiteCards.value) return;
+    isSubmittingWhiteCards.value = true;
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "submit_white_cards",
+        {
+          method: "POST",
+          body: {
+            czar_id: czarId.value,
+            user_id: playerId.value,
+            room_id: roomId.value,
+            submitted_cards: myChosenWhiteCards.value,
+          },
         },
-      },
-    );
-
-    if (error) {
-      console.error("[EDGE] Error submitting white cards:", error);
-    } else {
-      const submittedIds = new Set(myChosenWhiteCards.value.map((c) => c.id));
-      playerHandCards.value = playerHandCards.value.filter(
-        (handCard) => !submittedIds.has(handCard.id),
       );
-      console.log("Updated playerHandCards after submission: ", playerHandCards.value);
-      myChosenWhiteCards.value = [];
+      if (error) {
+        console.error("[EDGE] Error submitting white cards:", error);
+      } else {
+        const submittedIds = new Set(myChosenWhiteCards.value.map((c) => c.id));
+        playerHandCards.value = playerHandCards.value.filter(
+          (handCard) => !submittedIds.has(handCard.id),
+        );
+        console.log("Updated playerHandCards after submission: ", playerHandCards.value);
+        myChosenWhiteCards.value = [];
 
-      isWhiteCardsSubmitted.value = true;
+        isWhiteCardsSubmitted.value = true;
 
-      console.log("[EDGE] success submit_white_cards");
+        console.log("[EDGE] success submit_white_cards", data);
+      }
+    } finally {
+      isSubmittingWhiteCards.value = false;
     }
   } else {
     console.warn(
@@ -549,23 +566,29 @@ async function selectWinner(chosenPlayerSubmittion) {
 }
 
 const nextRound = async () => {
-  if (!isGameMaster.value) return;
+  if (!isCzar.value) return;
+  if (isStartingNextRound.value) return;
+  isStartingNextRound.value = true;
 
-  const { data, error } = await supabase.functions.invoke("initialize_next_round", {
-    method: "POST",
-    body: {
-      room_id: roomId.value,
-    },
-  });
-
-  if (error) {
-    console.error("Error starting next round:", error);
-  } else {
-    console.log("[EDGE] success initialize_next_round", data);
-    gameChannel.value.send({
-      type: "broadcast",
-      event: "cards_dealt",
+  try {
+    const { data, error } = await supabase.functions.invoke("initialize_next_round", {
+      method: "POST",
+      body: {
+        room_id: roomId.value,
+      },
     });
+
+    if (error) {
+      console.error("Error starting next round:", error);
+    } else {
+      console.log("[EDGE] success initialize_next_round", data);
+      gameChannel.value.send({
+        type: "broadcast",
+        event: "cards_dealt",
+      });
+    }
+  } finally {
+    isStartingNextRound.value = false;
   }
 };
 
@@ -612,7 +635,8 @@ onUnmounted(() => {
 <template>
   <main class="flex flex-col items-center min-h-screen scroll-x- pt-48">
     <!-- Lobby Info Section -->
-    <section class="z-10 shadow-xs shadow-white fixed top-0 left-0 pb-2 w-full bg-white pt-[max(env(safe-area-inset-top),1.5rem)]">
+    <section
+      class="z-10 shadow-xs shadow-white fixed top-0 left-0 pb-2 w-full bg-white pt-[env(safe-area-inset-top),1.5rem)]">
       <div class="flex items-start justify-between h-fit p-4">
         <div class="">
           <h1 class="text-2xl font-bold">Room: {{ roomCode }}</h1>
@@ -636,13 +660,13 @@ onUnmounted(() => {
           class="flex flex-col items-start justify-between gap-2 min-w-32 rounded-xl p-2 text-xs font-medium border transition-all"
           :class="czarId === player.user_id
             ? 'border-yellow-100 bg-yellow-100 text-yellow-700'
-            : player.status === 'submitted' 
-              ? 'border-green-50 bg-green-50 text-green-200' 
+            : player.status === 'submitted'
+              ? 'border-green-50 bg-green-50 text-green-200'
               : 'border-gray-50 bg-gray-50 text-gray-600'
             ">
           <div class="w-full flex flex-row items-center justify-start gap-1 transition">
             <span class="text-md font-bold transition">{{ player.user_name }}</span>
-            <span v-if="player.user_id === playerId" class="text-md font-normal transition">(you)</span>            
+            <span v-if="player.user_id === playerId" class="text-md font-normal transition">(you)</span>
           </div>
           <div class="w-full flex flex-row items-center justify-between gap-2 transition">
             <span class="">{{ player.score }}</span>
@@ -658,8 +682,8 @@ onUnmounted(() => {
     <section v-if="gameStarted" class="w-full h-full flex flex-col gap-4 max-w-2xl">
 
       <!-- Status Message -->
-      <div class="bg-white rounded p-2 text-blue-500 text-2xl text-center">
-        <p v-if="roundStatus === 'round_start'" class="font-medium">
+      <p class="bg-white p-2 text-blue-500 text-2xl text-center">
+        <span v-if="roundStatus === 'round_start'" class="font-medium">
           {{
             isCzar
               ? "Waiting for players to pick..."
@@ -667,11 +691,11 @@ onUnmounted(() => {
                 ? "Waiting for others..."
                 : "Pick a white card!"
           }}
-        </p>
-        <p v-if="roundStatus === 'round_submitted'" class="font-medium">
+        </span>
+        <span v-if="roundStatus === 'round_submitted'" class="font-medium">
           {{ isCzar ? "Pick the winner!" : "The Czar is judging..." }}
-        </p>
-      </div>
+        </span>
+      </p>
 
       <!-- Black Card -->
       <div class="flex flex-col items-center justify-center gap-4">
@@ -694,7 +718,8 @@ onUnmounted(() => {
         </div>
         <div v-if="roundStatus === 'round_end'" class="w-full p-4">
           <div class="flex flex-row items-center justify-start gap-4 bg-gray-100 p-4 rounded-lg transition-all">
-            <div v-for="(cardId, index) in winnerCards" :key="index" class="relative w-full min-h-48 max-w-36 rounded-lg shadow-lg bg-white p-3 font-medium text-sm transition-all">
+            <div v-for="(cardId, index) in winnerCards" :key="index"
+              class="relative w-full min-h-48 max-w-36 rounded-lg shadow-lg bg-white p-3 font-medium text-sm transition-all">
               {{ getCardTextById(cardId) }}
               <div class="absolute bottom-2 right-3 text-xs text-blue-500">
                 {{ winnerUsername }}
@@ -714,8 +739,8 @@ onUnmounted(() => {
         <div v-for="(playerSubmission, index) in submittedWhiteCards" :key="index"
           @click="isCzar && selectWinner(playerSubmission)"
           class="flex flex-col items-start gap-4 bg-gray-100 py-4 pl-4 rounded-lg transition-all" :class="isCzar
-              ? 'md:cursor-pointer md:hover:-translate-y-2 md:hover:border-blue-400'
-              : 'cursor-default'
+            ? 'cursor-pointer md:hover:-translate-y-2 md:hover:border-blue-400'
+            : 'cursor-default'
             ">
           <div class="text-xs text-gray-300">
             {{ index + 1 }}. Submission
@@ -726,6 +751,10 @@ onUnmounted(() => {
               class="w-full min-h-48 max-w-36 rounded-lg shadow-lg bg-white p-4 font-medium text-sm transition-all">
               {{ getCardTextById(cardId) }}
             </div>
+          </div>
+          <div v-if="isCzar"
+            class="md:hidden self-end mr-4 rounded-full bg-blue-500 px-6 py-4 text-[0.65rem] font-semibold uppercase tracking-wide text-white pointer-events-none">
+            choose 
           </div>
         </div>
       </div>
@@ -751,7 +780,8 @@ onUnmounted(() => {
     </section>
 
     <!-- Waiting for game to start -->
-    <section v-if="!isGameMaster && !gameStarted" class="bg-white rounded w-full max-w-2xl p-12 flex flex-col items-center justify-center">
+    <section v-if="!isGameMaster && !gameStarted"
+      class="bg-white rounded w-full max-w-2xl p-12 flex flex-col items-center justify-center">
       <p class="text-blue-500">Waiting for the Game Master to start...</p>
     </section>
 
@@ -759,24 +789,28 @@ onUnmounted(() => {
     <section v-if="gameStarted && !isCzar && roundStatus === 'round_start' && !isWhiteCardsSubmitted"
       class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
       <button @click="submitWhiteCards"
-        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
-        Submit
+        :disabled="isSubmittingWhiteCards || myChosenWhiteCards.length !== numberOfCardsToPlay"
+        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70">
+        {{ isSubmittingWhiteCards ? "Submitting..." : myChosenWhiteCards.length === numberOfCardsToPlay ? "Submit" :
+          `${myChosenWhiteCards.length} / ${numberOfCardsToPlay} Cards` }}
       </button>
     </section>
 
     <!-- Start Game Button -->
-    <section v-if="!gameStarted && isGameMaster" class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
-      <button @click="startGame"
-        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
-        Start Game
+    <section v-if="!gameStarted && isGameMaster"
+      class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
+      <button @click="startGame" :disabled="isStartingGame"
+        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70">
+        {{ isStartingGame ? "Starting..." : "Start Game" }}
       </button>
     </section>
 
     <!-- Next Round Button -->
-    <section v-if="roundStatus === 'round_end' && isCzar" class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
-      <button @click="nextRound"
-        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
-        Next Round
+    <section v-if="roundStatus === 'round_end' && isCzar"
+      class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
+      <button @click="nextRound" :disabled="isStartingNextRound"
+        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70">
+        {{ isStartingNextRound ? "Loading..." : "Next Round" }}
       </button>
     </section>
   </main>
