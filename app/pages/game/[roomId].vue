@@ -610,9 +610,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main class="flex flex-col items-center min-h-screen scroll-x-">
+  <main class="flex flex-col items-center min-h-screen scroll-x- pt-48">
     <!-- Lobby Info Section -->
-    <section class="w-full max-w-svw h-fit mb-2 overflow-x-visible pt-[max(env(safe-area-inset-top),1.5rem)]">
+    <section class="z-10 shadow-xs shadow-white fixed top-0 left-0 pb-2 w-full bg-white pt-[max(env(safe-area-inset-top),1.5rem)]">
       <div class="flex items-start justify-between h-fit p-4">
         <div class="">
           <h1 class="text-2xl font-bold">Room: {{ roomCode }}</h1>
@@ -633,25 +633,20 @@ onUnmounted(() => {
       <!-- Player List -->
       <div class="flex flex-row px-4 overflow-x-auto gap-2">
         <div v-for="player in playersWithScores" :key="player.user_id"
-          class="flex flex-row items-start justify-between gap-2 min-w-28 rounded-xl p-2 text-xs font-medium border transition-all"
+          class="flex flex-col items-start justify-between gap-2 min-w-32 rounded-xl p-2 text-xs font-medium border transition-all"
           :class="czarId === player.user_id
             ? 'border-yellow-100 bg-yellow-100 text-yellow-700'
             : player.status === 'submitted' 
               ? 'border-green-50 bg-green-50 text-green-200' 
               : 'border-gray-50 bg-gray-50 text-gray-600'
             ">
-          <!-- <div
-            class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold hover:bg-blue-600 transition"
-            :title="`${user?.user_metadata?.full_name || 'Profile'}`">
-            {{ getInitials(player.user_name) }}
-          </div> -->
-          <div>
-            <p class="text-md font-bold transition">{{ player.user_name }}</p>
-            <!-- <p v-if="czarId === player.user_id" class="font-bold">CZAR</p> -->
-            <p class="">{{ player.score }}</p>
+          <div class="w-full flex flex-row items-center justify-start gap-1 transition">
+            <span class="text-md font-bold transition">{{ player.user_name }}</span>
+            <span v-if="player.user_id === playerId" class="text-md font-normal transition">(you)</span>            
           </div>
-          <div class="h-full flex items-end transition">
-            <p class="text-[0.6rem] uppercase transition">{{ getPlayerDisplayStatus(player) }}</p>
+          <div class="w-full flex flex-row items-center justify-between gap-2 transition">
+            <span class="">{{ player.score }}</span>
+            <span class="text-[0.6rem] uppercase transition">{{ getPlayerDisplayStatus(player) }}</span>
           </div>
         </div>
       </div>
@@ -762,7 +757,7 @@ onUnmounted(() => {
 
     <!-- Submit Button -->
     <section v-if="gameStarted && !isCzar && roundStatus === 'round_start' && !isWhiteCardsSubmitted"
-      class="fixed bottom-8 flex items-center space-x-4 transition-all">
+      class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
       <button @click="submitWhiteCards"
         class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
         Submit
@@ -770,7 +765,7 @@ onUnmounted(() => {
     </section>
 
     <!-- Start Game Button -->
-    <section v-if="!gameStarted && isGameMaster" class="fixed bottom-8 flex items-center space-x-4 transition-all">
+    <section v-if="!gameStarted && isGameMaster" class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
       <button @click="startGame"
         class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
         Start Game
@@ -778,7 +773,7 @@ onUnmounted(() => {
     </section>
 
     <!-- Next Round Button -->
-    <section v-if="roundStatus === 'round_end' && isCzar" class="fixed bottom-8 flex items-center space-x-4 transition-all">
+    <section v-if="roundStatus === 'round_end' && isCzar" class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
       <button @click="nextRound"
         class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600">
         Next Round
