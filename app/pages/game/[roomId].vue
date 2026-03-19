@@ -797,39 +797,32 @@ onUnmounted(() => {
       <!-- Judging Area -->
       <div
         v-if="roundStatus === 'round_submitted'"
-        class="flex flex-col justify-center gap-4 p-4 h-full"
+        class="mx-1 overflow-x-auto overflow-y-visible px-1 pb-3 pt-1 [scrollbar-width:thin]"
       >
         <div
-          v-for="(playerSubmission, index) in submittedWhiteCards"
-          :key="index"
-          @click="isCzar && pickWinnerCard(playerSubmission)"
-          class="flex flex-col items-start gap-4 border border-transparent bg-gray-100 py-4 pl-4 rounded-lg transition-all"
-          :class="[
-            isCzar
-              ? 'cursor-pointer md:hover:-translate-y-2 md:hover:border-blue-400'
-              : 'cursor-default',
-            isWinnerSubmissionSelected(playerSubmission)
-              ? 'border-blue-400'
-              : '',
-          ]"
+          class="flex w-max min-w-full flex-nowrap gap-4 snap-x snap-mandatory"
         >
-          <div class="text-xs text-gray-300">{{ index + 1 }}. Submission</div>
-          <div
-            class="flex w-full flex-row items-center justify-start gap-4 bg-gray-100 transition-all"
+          <template
+            v-for="(playerSubmission, index) in submittedWhiteCards"
+            :key="`${playerSubmission.id || index}`"
           >
             <div
               v-for="cardId in playerSubmission.metadata?.submitted_cards || []"
               :key="`${playerSubmission.id}-${cardId}`"
-              class="w-full min-h-48 max-w-36 rounded-lg border border-transparent shadow-lg bg-white p-4 font-medium text-sm transition-all"
-              :class="
+              @click="isCzar && pickWinnerCard(playerSubmission)"
+              class="h-64 w-52 shrink-0 snap-start rounded-lg border border-gray-200 bg-white p-4 text-sm font-bold text-gray-800 shadow-sm transition-all"
+              :class="[
+                isCzar
+                  ? 'cursor-pointer md:hover:-translate-y-1 md:hover:border-blue-300 md:hover:shadow-lg'
+                  : 'cursor-default',
                 isWinnerSubmissionSelected(playerSubmission)
-                  ? 'border-blue-400 ring-2 ring-blue-200'
-                  : ''
-              "
+                  ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-200'
+                  : 'bg-white',
+              ]"
             >
               {{ getCardTextById(cardId) }}
             </div>
-          </div>
+          </template>
         </div>
       </div>
 
