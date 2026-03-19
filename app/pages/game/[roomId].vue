@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useCards } from "~/composables/useCards";
+import { useRoom } from "~/composables/useRoom";
 import { useSubmissionSelector } from "~/composables/useSubmissionSelector";
+import { useBlackCardGapTestToggle } from "~/composables/useBlackCardGapTestToggle";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 const route = useRoute();
@@ -13,8 +15,21 @@ const players = ref([]);
 const playerScores = ref<Record<string, number | null>>({});
 const roomId = ref<string | null>(null);
 const playerId = ref<string | null>(null);
+const {
+  // gameChannel ref
+  gameChannel,
 
-let gameChannel = ref<RealtimeChannel | null>(null);
+  // variables
+  isLeaving,
+  roomData,
+
+  // functions
+  getRoomIdByCode,
+  insertPlayerInRoomTable,
+  joinRoom,
+  leaveRoom,
+} = useRoom();
+
 const gameState = ref({});
 const roundStatus = ref("lobby");
 
@@ -31,23 +46,99 @@ const winnerUserId = ref<string | null>(null);
 const winnerCards = ref(null);
 const presenceJoinedAt = Date.now();
 
-const isLeaving = ref(false);
 const authError = ref("");
 const isStartingGame = ref(false);
 const isStartingNextRound = ref(false);
 
-// First player in join order acts as game master.
+const handOffset = ref(0); // start index of the visible 3-card window
+const visibleHandCards = 3;
+const handScrollLockMs = 120;
+let lastHandScrollAt = 0;
+
+const maxHandOffset = computed(() =>
+  Math.max(0, playerHandCards.value.length - visibleHandCards),
+);
+
+const clampHandOffset = (value: number) => {
+  return Math.min(Math.max(value, 0), maxHandOffset.value);
+};
+
+const stepHand = (direction: 1 | -1) => {
+  handOffset.value = clampHandOffset(handOffset.value + direction);
+};
+
+const handleHandScroll = (event: WheelEvent) => {
+  const now = Date.now();
+  if (now - lastHandScrollAt < handScrollLockMs) return;
+
+  const delta =
+    Math.abs(event.deltaX) > Math.abs(event.deltaY)
+      ? event.deltaX
+      : event.deltaY;
+
+  if (Math.abs(delta) < 8) return;
+
+  stepHand(delta > 0 ? 1 : -1);
+  lastHandScrollAt = now;
+};
+
+// Keep offset valid if hand size changes (cards submitted/dealt)
+watch(
+  () => playerHandCards.value.length,
+  () => {
+    handOffset.value = clampHandOffset(handOffset.value);
+  },
+);
+
+const handCardStyle = (index: number) => {
+  const centerIndex = handOffset.value + 1;
+  const relative = index - centerIndex;
+  const d = Math.abs(relative);
+  const dir = Math.sign(relative) || 1;
+
+  const x =
+    d === 0
+      ? 0
+      : d === 1
+        ? dir * 135
+        : d === 2
+          ? dir * 200
+          : d === 3
+            ? dir * 250
+            : dir * (250 + (d - 3) * 24);
+
+  const y = Math.min(4 + d * d * 3.2, 40);
+
+  const rotate =
+    d === 0
+      ? 0
+      : d === 1
+        ? relative * 5.5
+        : d === 2
+          ? relative * 4.2
+          : relative * 3.2;
+
+  const tooFar = d > 5;
+
+  return {
+    left: "50%",
+    top: "50%",
+    transform: `translate(-50%, -50%) translateX(${x}px) translateY(${y}px) rotate(${rotate}deg)`,
+    zIndex: String(2000 - d * 20 - index),
+    opacity: tooFar ? "0" : "1",
+    pointerEvents: tooFar ? "none" : "auto",
+  };
+};
+
 const gameMasterId = computed(() => {
-  const firstPlayer = players.value[0];
+  const firstPlayer = (players.value as any[])[0];
   return firstPlayer?.user_id ?? null;
 });
 
-// True when this client is the current game master.
 const isGameMaster = computed(() => {
   return !!playerId.value && playerId.value === gameMasterId.value;
 });
 
-// User id of the active czar for the current round.
 const czarId = computed(() => {
   if (gameStarted.value) {
     return gameState.value.czar_id ?? null;
@@ -55,42 +146,60 @@ const czarId = computed(() => {
   return null;
 });
 
-// True when this client is the active czar.
 const isCzar = computed(() => {
   return !!playerId.value && playerId.value === czarId.value;
 });
 
-const numberOfCardsToPlay = computed(() => {
-  if (!blackCard.value) return null;
-  if (blackCard.value.number_of_gaps === null) {
-    console.warn("Black card missing number_of_gaps:", blackCard.value);
-    return null;
-  }
-  if (blackCard.value.number_of_gaps === 0) return 1; // If 0, card is a question. 1 card must be played.
-  return blackCard.value.number_of_gaps;
+const GAP_TOKEN = "[[W1tnYXBdXQ==]]";
+
+const {
+  setEnabled: setBlackCardMinGapTestEnabled,
+  applyIfEnabled: applyBlackCardMinGapTest,
+} = useBlackCardGapTestToggle({
+  gapToken: GAP_TOKEN,
+  minGaps: 2,
 });
 
-const chosenWhiteCardsByGap = ref<any[]>([]);
-const whiteCardPickError = ref("");
-const isSubmittingWhiteCards = ref(false);
-
-const myChosenWhiteCards = computed(() =>
-  chosenWhiteCardsByGap.value.filter((card) => !!card),
+const enableBlackCardMinGapTest = ref(false);
+watch(
+  enableBlackCardMinGapTest,
+  (enabled) => {
+    setBlackCardMinGapTestEnabled(enabled);
+  },
+  { immediate: true },
 );
 
-const ensureGapSlots = () => {
-  const required = Number(numberOfCardsToPlay.value ?? 1);
-  const current = chosenWhiteCardsByGap.value;
-  chosenWhiteCardsByGap.value = Array.from(
-    { length: required },
-    (_, idx) => current[idx] ?? null,
-  );
-};
+const effectiveBlackCard = computed(() =>
+  applyBlackCardMinGapTest(blackCard.value as any),
+);
 
-const resetWhiteCardSelection = () => {
-  chosenWhiteCardsByGap.value = [];
-  whiteCardPickError.value = "";
-};
+const numberOfCardsToPlay = computed(() => {
+  const card = effectiveBlackCard.value as any;
+  if (!card) return null;
+  if (card.number_of_gaps === null) {
+    console.warn("Black card missing number_of_gaps:", card);
+    return null;
+  }
+  if (card.number_of_gaps === 0) return 1; // If 0, card is a question. 1 card must be played.
+  return card.number_of_gaps;
+});
+
+const {
+  selectedItems: myChosenWhiteCards,
+  selectedSlots: chosenWhiteCardsByGap,
+  errorMessage: whiteCardPickError,
+  isSubmitting: isSubmittingWhiteCards,
+  pick: pickWhiteCard,
+  getSelectedAt: getChosenWhiteCardAtGap,
+  removeSelectedAt: removeChosenWhiteCardAtGapRaw,
+  submitSelection: submitWhiteCardSelection,
+  resetSelection: resetWhiteCardSelection,
+} = useSubmissionSelector<any>({
+  mode: "slots",
+  requiredCount: numberOfCardsToPlay,
+  getKey: (card) => card?.id,
+  deselectOnRepeatPick: true,
+});
 
 const {
   selectedItems: selectedWinnerSubmissions,
@@ -112,8 +221,6 @@ const availableCollectionCards = computed(() => {
   if (Array.isArray(collectionCards.value)) return collectionCards.value;
   return [];
 });
-
-const GAP_TOKEN = "[[W1tnYXBdXQ==]]";
 
 type TextPart = {
   text: string;
@@ -149,8 +256,8 @@ const getTextParts = (text: string): TextPart[] => {
 
 const blackCardTextParts = computed(() => {
   const text =
-    typeof (blackCard.value as any)?.text === "string"
-      ? (blackCard.value as any).text
+    typeof (effectiveBlackCard.value as any)?.text === "string"
+      ? (effectiveBlackCard.value as any).text
       : "";
 
   return getTextParts(text);
@@ -167,8 +274,7 @@ const canEditChosenGaps = computed(() => {
 const getChosenWhiteCardTextAtGap = (gapIndex?: number) => {
   if (typeof gapIndex !== "number") return null;
 
-  ensureGapSlots();
-  const chosenCard = chosenWhiteCardsByGap.value[gapIndex];
+  const chosenCard = getChosenWhiteCardAtGap(gapIndex);
   if (!chosenCard) return null;
 
   const cardText = availableCollectionCards.value.find(
@@ -182,11 +288,7 @@ const removeChosenWhiteCardAtGap = (gapIndex?: number) => {
   if (!canEditChosenGaps.value) return;
   if (typeof gapIndex !== "number") return;
 
-  ensureGapSlots();
-  if (gapIndex < 0 || gapIndex >= chosenWhiteCardsByGap.value.length) return;
-
-  chosenWhiteCardsByGap.value[gapIndex] = null;
-  whiteCardPickError.value = "";
+  removeChosenWhiteCardAtGapRaw(gapIndex);
 };
 
 const getPlayerScore = (userId: string) => {
@@ -249,21 +351,7 @@ const round = computed(() => {
 });
 
 onMounted(async () => {
-  // Look up the room by code and get its ID
-  // ===============================================================
-  const { data: roomData } = await supabase
-    .from("rooms")
-    .select("id, code, metadata")
-    .eq("code", roomCode)
-    .maybeSingle();
-
-  if (!roomData) {
-    authError.value = "Room does not exist.";
-    return;
-  }
-
-  roomId.value = roomData.id;
-  // ===============================================================
+  roomId.value = await getRoomIdByCode(roomCode);
 
   // Authentication
   // ===============================================================
@@ -274,34 +362,20 @@ onMounted(async () => {
   }
   // ===============================================================
 
-  // Add player to room_members table (or mark active if rejoining)
-  // ===============================================================
   if (!playerId.value || !roomId.value) {
     authError.value = "Missing player or room ID.";
     return;
   }
 
-  const { error } = await supabase.from("room_members").upsert(
-    {
-      room_id: roomId.value,
-      user_id: playerId.value,
-      role: "player",
-      is_active: true,
-      left_at: null,
-      joined_at: new Date().toISOString(),
-    },
-    { onConflict: "room_id,user_id" },
-  );
-
-  if (error) {
-    authError.value = "Failed to join room.";
-    console.error("Error joining room:", error);
-    return;
-  }
+  // Add player to room_members table (or mark active if rejoining)
+  // ===============================================================
+  insertPlayerInRoomTable(roomId.value, playerId.value);
   // ===============================================================
 
   // Join the realtime channel for this room by room ID
   // ===============================================================
+  joinRoom(roomCode, playerId.value);
+
   gameChannel.value = supabase.channel(`${roomCode}`, {
     config: { broadcast: { self: true }, presence: { key: playerId.value } },
   });
@@ -562,42 +636,11 @@ async function handleRoundEnd(currentMetaData: object) {
 const chooseCard = async (card) => {
   if (isCzar.value) return;
 
-  ensureGapSlots();
-  whiteCardPickError.value = "";
-
-  const existingIdx = chosenWhiteCardsByGap.value.findIndex(
-    (chosen) => chosen?.id === card.id,
-  );
-
-  if (existingIdx !== -1) {
-    chosenWhiteCardsByGap.value[existingIdx] = null;
-    return;
-  }
-
-  const firstEmptyGapIdx = chosenWhiteCardsByGap.value.findIndex(
-    (chosen) => !chosen,
-  );
-  if (firstEmptyGapIdx === -1) {
-    whiteCardPickError.value = `you can only pick ${Number(numberOfCardsToPlay.value ?? 1)} cards`;
-    return;
-  }
-
-  chosenWhiteCardsByGap.value[firstEmptyGapIdx] = card;
+  pickWhiteCard(card);
 };
 
 const submitWhiteCards = async () => {
-  const required = Number(numberOfCardsToPlay.value ?? 1);
-  const selectedCards = myChosenWhiteCards.value;
-
-  if (selectedCards.length !== required) {
-    whiteCardPickError.value = `you have to pick ${required} cards`;
-    return;
-  }
-
-  if (isSubmittingWhiteCards.value) return;
-  isSubmittingWhiteCards.value = true;
-
-  try {
+  await submitWhiteCardSelection(async (selectedCards) => {
     const { data, error } = await supabase.functions.invoke(
       "submit_white_cards",
       {
@@ -616,9 +659,9 @@ const submitWhiteCards = async () => {
       return;
     }
 
-    const submittedIds = new Set(selectedCards.map((c) => c.id));
+    const submittedIds = new Set(selectedCards.map((c: any) => c.id));
     playerHandCards.value = playerHandCards.value.filter(
-      (handCard) => !submittedIds.has(handCard.id),
+      (handCard: any) => !submittedIds.has(handCard.id),
     );
     console.log(
       "Updated playerHandCards after submission: ",
@@ -627,11 +670,7 @@ const submitWhiteCards = async () => {
     resetWhiteCardSelection();
     isWhiteCardsSubmitted.value = true;
     console.log("[EDGE] success submit_white_cards", data);
-  } catch (error) {
-    console.error("[EDGE] submit_white_cards failed:", error);
-  } finally {
-    isSubmittingWhiteCards.value = false;
-  }
+  });
 };
 
 const pickWinnerCard = (playerSubmission) => {
@@ -698,21 +737,26 @@ const nextRound = async () => {
   }
 };
 
-const leaveRoom = async () => {
-  const { error } = await supabase
-    .from("room_members")
-    .delete()
-    .eq("room_id", roomId.value)
-    .eq("user_id", playerId.value);
-
-  if (error) {
-    console.error("Error leaving room:", error);
-    return;
-  }
-
-  isLeaving.value = true;
-  await navigateTo("/");
+const handleLeaveRoom = async () => {
+  if (!roomId.value || !playerId.value) return;
+  await leaveRoom(roomId.value, playerId.value);
 };
+
+// const leaveRoom = async () => {
+//   const { error } = await supabase
+//     .from("room_members")
+//     .delete()
+//     .eq("room_id", roomId.value)
+//     .eq("user_id", playerId.value);
+
+//   if (error) {
+//     console.error("Error leaving room:", error);
+//     return;
+//   }
+
+//   isLeaving.value = true;
+//   await navigateTo("/");
+// };
 
 const markMemberInactive = async () => {
   if (!playerId.value || !roomId.value) return;
@@ -721,15 +765,6 @@ const markMemberInactive = async () => {
     .update({ is_active: false, left_at: new Date().toISOString() })
     .eq("room_id", roomId.value)
     .eq("user_id", playerId.value);
-};
-
-const getInitials = (name) => {
-  if (!name) return "?";
-  const parts = name.trim().split(" ");
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-  return name.substring(0, 2).toUpperCase();
 };
 
 onUnmounted(() => {
@@ -755,7 +790,7 @@ onUnmounted(() => {
         </div>
         <div class="flex gap-2">
           <button
-            @click="leaveRoom"
+            @click="handleLeaveRoom"
             class="px-6 py-4 rounded-full text-gray-500 border border-gray-300 text-sm font-semibold rounded-xl hover:bg-gray-50"
           >
             Leave
@@ -802,6 +837,16 @@ onUnmounted(() => {
     </section>
 
     <p v-if="authError" class="text-red-500 text-sm mb-4">{{ authError }}</p>
+    <label
+      class="mb-2 inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600"
+    >
+      <input
+        v-model="enableBlackCardMinGapTest"
+        type="checkbox"
+        class="h-4 w-4"
+      />
+      Test mode: force at least 2 black-card gaps
+    </label>
     <p
       v-if="
         whiteCardPickError &&
@@ -938,29 +983,34 @@ onUnmounted(() => {
           roundStatus === 'round_start' &&
           isWhiteCardsSubmitted === false
         "
-        class=""
+        class="fixed bottom- left-1/2 -translate-x-1/2"
       >
         <div
-          class="mx-1 overflow-x-auto overflow-y-visible px-1 pb-3 pt-1 [scrollbar-width:thin]"
+          class="relative h-[26rem] w-[46rem] max-w-[95vw] overflow-hidden"
+          @wheel.prevent="handleHandScroll"
         >
           <div
-            class="flex w-max min-w-full flex-nowrap gap-4 snap-x snap-mandatory"
+            v-for="(card, index) in playerHandCards"
+            :key="card.id"
+            @click="chooseCard(card)"
+            class="absolute h-64 w-52 cursor-pointer transition-all duration-200 ease-out"
+            :style="handCardStyle(index)"
           >
             <div
-              v-for="card in playerHandCards"
-              :key="card.id"
-              @click="chooseCard(card)"
-              class="h-64 w-52 shrink-0 snap-start cursor-pointer rounded-lg border border-gray-200 bg-white p-4 text-sm font-bold text-gray-800 shadow-sm transition-all md:hover:-translate-y-1 md:hover:border-blue-300 md:hover:shadow-lg"
+              class="flex h-full w-full items-center justify-center rounded-2xl border border-gray-200 bg-white p-4 text-sm font-bold text-gray-800 shadow-md"
               :class="
                 myChosenWhiteCards.some((c) => c.id === card.id)
                   ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-200'
                   : 'bg-white'
               "
             >
-              {{
-                (collectionCards.data || []).find((c) => c.id === card.card_id)
-                  ?.text || "Loading..."
-              }}
+              <div class="text-center leading-5">
+                {{
+                  (collectionCards.data || []).find(
+                    (c) => c.id === card.card_id,
+                  )?.text || "Loading..."
+                }}
+              </div>
             </div>
           </div>
         </div>
