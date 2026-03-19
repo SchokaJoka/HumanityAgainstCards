@@ -107,6 +107,7 @@ const GAP_TOKEN = "[[W1tnYXBdXQ==]]";
 type TextPart = {
   text: string;
   isGap: boolean;
+  gapIndex?: number;
 };
 
 const getCardTextById = (cardId: string) => {
@@ -119,16 +120,20 @@ const getTextParts = (text: string): TextPart[] => {
     return [{ text, isGap: false }];
   }
 
-  return text
-    .split(GAP_TOKEN)
-    .flatMap((part: string, index: number, parts: string[]) =>
-      index < parts.length - 1
-        ? [
-            { text: part, isGap: false },
-            { text: "", isGap: true },
-          ]
-        : [{ text: part, isGap: false }],
-    );
+  const textParts = text.split(GAP_TOKEN);
+  const parts: TextPart[] = [];
+  let gapIndex = 0;
+
+  textParts.forEach((part: string, index: number) => {
+    parts.push({ text: part, isGap: false });
+
+    if (index < textParts.length - 1) {
+      parts.push({ text: "", isGap: true, gapIndex });
+      gapIndex += 1;
+    }
+  });
+
+  return parts;
 };
 
 const blackCardTextParts = computed(() => {
@@ -139,6 +144,37 @@ const blackCardTextParts = computed(() => {
 
   return getTextParts(text);
 });
+
+const canEditChosenGaps = computed(() => {
+  return (
+    !isCzar.value &&
+    roundStatus.value === "round_start" &&
+    !isWhiteCardsSubmitted.value
+  );
+});
+
+const getChosenWhiteCardTextAtGap = (gapIndex?: number) => {
+  if (typeof gapIndex !== "number") return null;
+
+  const chosenCard = myChosenWhiteCards.value[gapIndex];
+  if (!chosenCard) return null;
+
+  const cardText = availableCollectionCards.value.find(
+    (c: any) => c.id === chosenCard.card_id,
+  )?.text;
+
+  return typeof cardText === "string" ? cardText : null;
+};
+
+const removeChosenWhiteCardAtGap = (gapIndex?: number) => {
+  if (!canEditChosenGaps.value) return;
+  if (typeof gapIndex !== "number") return;
+  if (gapIndex < 0 || gapIndex >= myChosenWhiteCards.value.length) return;
+
+  myChosenWhiteCards.value = myChosenWhiteCards.value.filter(
+    (_, idx) => idx !== gapIndex,
+  );
+};
 
 const getPlayerScore = (userId: string) => {
   const score = playerScores.value[userId];
@@ -765,9 +801,22 @@ onUnmounted(() => {
             >
               <span
                 v-if="part.isGap"
-                class="mx-1 inline-flex min-w-20 items-center justify-center rounded-md border border-white/40 bg-white/10 px-3 py-1 align-middle text-sm font-semibold tracking-[0.35em] text-white/80 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
+                @click="removeChosenWhiteCardAtGap(part.gapIndex)"
+                :title="getChosenWhiteCardTextAtGap(part.gapIndex) || '•••'"
+                class="mx-1 inline-flex h-8 w-24 min-w-24 items-center justify-center overflow-hidden rounded-md border border-white/40 bg-white/10 px-3 py-1 align-middle text-sm font-semibold text-white/90 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
+                :class="[
+                  canEditChosenGaps &&
+                  getChosenWhiteCardTextAtGap(part.gapIndex)
+                    ? 'cursor-pointer hover:border-white/70 hover:bg-white/20'
+                    : 'cursor-default',
+                  getChosenWhiteCardTextAtGap(part.gapIndex)
+                    ? 'tracking-normal'
+                    : 'tracking-[0.35em] text-white/80',
+                ]"
               >
-                •••
+                <span class="block w-full truncate text-center">
+                  {{ getChosenWhiteCardTextAtGap(part.gapIndex) || "•••" }}
+                </span>
               </span>
               <span v-else>{{ part.text }}</span>
             </span>
