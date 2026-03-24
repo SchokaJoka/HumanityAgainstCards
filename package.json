@@ -13,7 +13,6 @@
     "@nuxtjs/supabase": "^2.0.4",
     "@nuxtjs/tailwindcss": "^6.14.0",
     "nuxt": "^4.3.1",
-    "v-gsap-nuxt": "^1.5.12",
     "vue": "^3.5.29",
     "vue-router": "^4.6.4",
     "vue3-carousel": "^0.17.0"

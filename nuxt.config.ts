@@ -2,13 +2,10 @@
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
-  modules: ["@nuxtjs/supabase", "@nuxtjs/tailwindcss", "v-gsap-nuxt"],
+  modules: ["@nuxtjs/supabase", "@nuxtjs/tailwindcss"],
   supabase: {
     redirect: false,
     types: "~~/types/database.types.ts",
   },
   // css: ["~/assets/css/main.css"],
-  vgsap: {
-    composable: true,
-  },
 });

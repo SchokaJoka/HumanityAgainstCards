@@ -34,10 +34,6 @@ type CollectionCard = {
   text: string;
 };
 
-type DraggableInstance = {
-  kill: () => void;
-};
-
 const props = defineProps<{
   handCards: HandCard[];
   collectionCards: CollectionCard[];
@@ -53,12 +49,9 @@ const current = ref(0);
 const scrollLockMs = 120;
 let lastScrollAt = 0;
 const isMobile = ref(false);
-let draggable: DraggableInstance | null = null;
 let touchStartX = 0;
 let dragStartIndex = 0;
 let isTouchDragging = false;
-
-const gsap = useGSAP();
 const spacing = 75;
 
 const maxIndex = computed(() => Math.max(0, props.handCards.length - 1));
@@ -119,12 +112,6 @@ const handleScroll = (event: WheelEvent) => {
   lastScrollAt = now;
 };
 
-const killDraggable = () => {
-  if (!draggable) return;
-  draggable.kill();
-  draggable = null;
-};
-
 const handleTouchStart = (event: TouchEvent) => {
   if (!isMobile.value) return;
   const touch = event.touches[0];
@@ -159,98 +146,26 @@ const handleTouchEnd = () => {
   }, 0);
 };
 
-const initializeDraggable = () => {
-  if (!isMobile.value) return;
-  if (!carouselContainerRef.value) return;
-
-  killDraggable();
-
-  const DraggablePlugin = gsap.core.globals().Draggable as
-    | {
-        create: (
-          target: Element,
-          vars: Record<string, unknown>,
-        ) => DraggableInstance[];
-      }
-    | undefined;
-
-  if (!DraggablePlugin) return;
-
-  let dragStartIndex = 0;
-
-  draggable = DraggablePlugin.create(carouselContainerRef.value, {
-    type: "x",
-    edgeResistance: 0.85,
-    bounds: {
-      minX: -(maxIndex.value * spacing),
-      maxX: 0,
-    },
-    onPress: () => {
-      dragStartIndex = current.value;
-    },
-    onDrag: function (this: { x: number }) {
-      const movement = Math.round(this.x / spacing);
-      const nextIndex = Math.max(
-        0,
-        Math.min(dragStartIndex - movement, maxIndex.value),
-      );
-      current.value = nextIndex;
-    },
-    onRelease: function (this: { target: EventTarget | null }) {
-      if (!(this.target instanceof Element)) return;
-      gsap.to(this.target, { x: 0, duration: 0.25, ease: "power2.out" });
-    },
-  })[0];
-};
-
 const handleResize = () => {
-  const wasMobile = isMobile.value;
   isMobile.value = window.innerWidth < 640;
-
-  if (!wasMobile && isMobile.value) {
-    initializeDraggable();
-    return;
-  }
-
-  if (wasMobile && !isMobile.value) {
-    killDraggable();
-  }
 };
 
 watch(
   () => props.handCards.length,
-  async () => {
+  () => {
     current.value = Math.min(current.value, maxIndex.value);
-    if (!isMobile.value) return;
-    await nextTick();
-    initializeDraggable();
   },
 );
 
-onMounted(async () => {
+onMounted(() => {
   current.value = Math.floor(maxIndex.value / 2);
   isMobile.value = window.innerWidth < 640;
-
-  await nextTick();
-
-  if (carouselContainerRef.value) {
-    gsap.fromTo(
-      carouselContainerRef.value,
-      { autoAlpha: 0, y: 12 },
-      { autoAlpha: 1, y: 0, duration: 0.28, ease: "power2.out" },
-    );
-  }
-
-  if (isMobile.value) {
-    initializeDraggable();
-  }
 
   window.addEventListener("resize", handleResize);
 });
 
 onUnmounted(() => {
   window.removeEventListener("resize", handleResize);
-  killDraggable();
 });
 </script>
 
