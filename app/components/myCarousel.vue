@@ -73,7 +73,6 @@ const emitSelect = (card: HandCard) => emit("select-card", card);
 
 const getCardStyle = (index: number) => {
   const offsetFromCenter = index - current.value;
-  const fixedRotationDeg = (index - Math.floor(maxIndex.value / 2)) * 10;
   const zIndex =
     offsetFromCenter === 0 ? 1000 : 100 - Math.abs(offsetFromCenter);
 
@@ -81,9 +80,12 @@ const getCardStyle = (index: number) => {
   const spacing = 75;
   const translateX = offsetFromCenter * spacing;
 
+  // Rotation based on offset: center card has 0 rotation
+  const rotationDeg = offsetFromCenter * 10;
+
   return {
     zIndex: String(zIndex),
-    transform: `rotateZ(${fixedRotationDeg}deg) translateX(${translateX}px)`,
+    transform: `rotateZ(${rotationDeg}deg) translateX(${translateX}px)`,
     transformOrigin: `${pivotX}% 100%`,
   };
 };
@@ -108,6 +110,7 @@ const handleScroll = (event: WheelEvent) => {
 };
 
 const initializeDraggable = () => {
+  if (!isMobile.value) return;
   if (!carouselContainerRef.value) return;
   if (draggable) {
     Draggable.get(carouselContainerRef.value)?.kill();
@@ -115,29 +118,32 @@ const initializeDraggable = () => {
 
   lastDragX = 0;
 
+  let dragStartIndex = 0;
+
   draggable = Draggable.create(carouselContainerRef.value, {
     type: "x",
-    edgeResistance: 0.85, // Stronger resistance at edges
+    edgeResistance: 0.85,
     bounds: {
-      minX: -(maxIndex.value * 75), // Calculate based on max cards
+      minX: -(maxIndex.value * 75),
       maxX: 0,
     },
     inertia: true,
     onPress: function () {
-      lastDragX = this.x;
+      dragStartIndex = current.value;
     },
     onDrag: function () {
-      const deltaX = this.x - lastDragX;
       const spacing = 75;
-      const movement = Math.round(deltaX / spacing);
+      // Calculate movement from initial press position
+      const movement = Math.round(this.x / spacing);
 
-      if (movement !== 0) {
-        const newIndex = current.value - movement;
-        // Clamp to valid range
-        const clampedIndex = Math.max(0, Math.min(newIndex, maxIndex.value));
-        current.value = clampedIndex;
-        lastDragX = this.x;
-      }
+      // Index change: negative x = moving left = increasing index
+      let newIndex = dragStartIndex - movement;
+      newIndex = Math.max(0, Math.min(newIndex, maxIndex.value));
+
+      current.value = newIndex;
+    },
+    onRelease: function () {
+      gsap.to(this.target, { x: 0, duration: 0.3 });
     },
   })[0];
 };
@@ -243,3 +249,24 @@ onUnmounted(() => {
   pointer-events: none;
 }
 </style>
+
+<!-- 
+alphabetisch
+ farblich
+ genre
+ combiniert (bsp genre und innerhalb alphabetisch)
+ nach grösse
+ nach dicke
+ herausgebedatum
+ nach autorInnen
+ rückwärts alphabetisch
+ nach sprachen
+geburtsdatum autorInnen
+nach bewertung (online ratings)
+nach beliebtheit (du selbst)
+nach jugendfrei oder nicht
+nach anz bilder
+nach gelesen oder nicht
+woher es ist (tante hat es gekauft oder bekommen von wem etc)
+
+  -->
