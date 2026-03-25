@@ -15,32 +15,34 @@ export function useGameManager() {
 
   const { getCardCollections } = useCards();
 
-  async function setGameMasterIfNotExists(roomId: string) {
-    // Just read - no writing from client
+  // async function setGameMasterIfNotExists(
+  //   roomId: string,
+  // ): Promise<string | null> {
+  //   const { data } = await supabase
+  //     .from("rooms")
+  //     .select("owner")
+  //     .eq("id", roomId)
+  //     .single();
+
+  //   console.log(`[GameMaster] Read owner from DB: ${data?.owner}`);
+  //   return data?.owner ?? null;
+  // }
+
+  async function getGameMasterId(roomId: string): Promise<string | null> {
     const { data } = await supabase
       .from("rooms")
-      .select("metadata")
+      .select("owner")
       .eq("id", roomId)
-      .maybeSingle();
+      .single();
 
-    console.log(
-      `[GameMaster] Read game_master_id from DB: ${data?.metadata?.game_master_id}`,
-    );
-    return data?.metadata?.game_master_id ?? null;
-  }
-
-  async function getGameMasterId(roomId: string) {
-    const { data } = await supabase
-      .from("rooms")
-      .select("metadata")
-      .eq("id", roomId)
-      .maybeSingle();
-
-    return data?.metadata?.game_master_id ?? null;
+    return data?.owner ?? null;
   }
 
   async function initializeGame(roomId: string, dev2gaps: boolean) {
     if (!gameChannel.value || players.value.length < 2 || !isGameMaster.value) {
+      console.log("[GameManager] gameChannel:", gameChannel.value);
+      console.log("[GameManager] players:", players.value);
+      console.log("[GameManager] isGameMaster:", isGameMaster.value);
       if (players.value.length < 2)
         console.error("Need at least 2 players to start.");
       return;
@@ -67,6 +69,8 @@ export function useGameManager() {
         type: "broadcast",
         event: "game_start",
       });
+
+      console.log("[GameManager] Initializing game with set:", sets[0].name);
 
       const { data: edgeInitializeData } = await supabase.functions.invoke(
         "initialize_game",
@@ -137,6 +141,6 @@ export function useGameManager() {
     initializeGame,
     initializeNextRound,
     getGameMasterId,
-    setGameMasterIfNotExists,
+    // setGameMasterIfNotExists,
   };
 }

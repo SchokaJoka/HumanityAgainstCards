@@ -1,6 +1,6 @@
 <template>
-  <header class="fixed top-0 w-full flex items-center justify-start p-4 bg-white z-10">
-    <div class="cursor-pointer" @click="openMenu">
+  <header class="fixed top-0 w-full flex items-center justify-start p-4 bg-white z-40">
+    <div class="cursor-pointer" @click="handleMenuToggle">
       <svg xmlns="http://www.w3.org/2000/svg" width="29" height="24" viewBox="0 0 29 24"
         class="stroke-black stroke-[4]">
         <line y1="2" x2="29" y2="2" />
@@ -11,22 +11,23 @@
   </header>
 
   <!-- Menu overlay -->
-  <div class="fixed inset-0 z-40" :class="isMenuOpen ? 'pointer-events-auto' : 'pointer-events-none'">
+  <div class="fixed inset-0 z-20" :class="isMenuOpen ? 'pointer-events-auto' : 'pointer-events-none'">
     <div class="absolute inset-0 bg-black/40 transition-opacity duration-300"
       :class="isMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'" @click="closeMenu" />
 
     <aside
-      class="absolute left-0 top-0 h-svh w-64 flex flex-col bg-zinc-200 shadow-lg transition-transform duration-300 ease-out"
+      class="absolute left-0 top-0 h-svh w-64 flex flex-col bg-white shadow-lg transition-transform duration-300 ease-out"
       :class="isMenuOpen ? 'translate-x-0' : '-translate-x-full'">
       <div class="flex items-center justify-between p-4">
-        <div class="cursor-pointer" @click="closeMenu">
+        <!-- <div class="cursor-pointer" @click="closeMenu">
           <svg xmlns="http://www.w3.org/2000/svg" width="29" height="24" viewBox="0 0 29 24"
             class="stroke-black stroke-[4]">
             <line y1="2" x2="29" y2="2" />
             <line y1="12" x2="29" y2="12" />
             <line y1="22" x2="29" y2="22" />
           </svg>
-        </div>
+        </div> -->
+        <div class="h-[24px]"></div>
       </div>
 
       <nav class="flex flex-col gap-2 h-full justify-between">
@@ -86,14 +87,10 @@
   <main class="relative flex flex-col items-center justify-center min-h-svh w-full max-w-2xl p-8 gap-8">
     <div class="flex flex-col items-center justify-center h-svh w-full p-8 gap-8">
       <h1 class="w-full h-fit text-black text-5xl font-normal">
-        Cards Against Humanity
+        Der Kampf gegen das Bünzlitum
       </h1>
-      <Button @click="createGame()" variant="primary" size="lg" block class="rounded-xl">
-        Create Game
-      </Button>
-      <Button @click="joinGame()" variant="primary" size="lg" block class="rounded-xl">
-        Join Game
-      </Button>
+      <Button @click="createGame()" variant="primary" size="lg" block class="rounded-xl">Create Game</Button>
+      <Button @click="joinGame()" variant="primary" size="lg" block class="rounded-xl">Join Game</Button>
     </div>
 
     <!-- How To Play -->
@@ -146,6 +143,10 @@ const openMenu = () => {
 
 const closeMenu = () => {
   isMenuOpen.value = false;
+};
+
+const handleMenuToggle = () => {
+  isMenuOpen.value = !isMenuOpen.value;
 };
 
 const goToProfile = () => {
@@ -206,8 +207,7 @@ const createGame = async () => {
       code: newRoomCode,
       owner: user.value.id || user.value.sub,
       metadata: {
-        round_status: "lobby",
-        game_master_id: user.value.id || user.value.sub
+        round_status: "lobby"
       },
     })
     .select()

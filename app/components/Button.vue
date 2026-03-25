@@ -1,20 +1,10 @@
 <template>
-  <button
-    :type="type"
-    :class="buttonClasses"
-    :disabled="isDisabled"
-    @click="handleClick"
-  >
+  <button :type="type" :class="buttonClasses" :disabled="isDisabled" @click="handleClick">
     <span v-if="loading" class="inline-flex items-center gap-2">
-      <span
-        class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-        aria-hidden="true"
-      />
+      <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
       <slot name="loading">Loading...</slot>
     </span>
-    <span v-else>
-      <slot />
-    </span>
+    <slot v-else />
   </button>
 </template>
 

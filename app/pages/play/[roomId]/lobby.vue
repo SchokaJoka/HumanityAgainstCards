@@ -9,7 +9,8 @@ const supabase = useSupabaseClient();
 const route = useRoute();
 const roomId = ref<string>("");
 const playerId = ref<string>("");
-const gameMasterId = ref<string | null>(null);
+const gameMasterId = useState<string>("gameMasterId", () => "");
+const isGameMaster = useState<boolean>("isGameMaster", () => false);
 
 const roomCode = String(route.params.roomId ?? "").toUpperCase();
 
@@ -62,12 +63,11 @@ const {
   // Variables
   isStartingGame,
   isStartingNextRound,
-
   // Functions
   initializeGame,
   initializeNextRound,
-  setGameMasterIfNotExists,
-  getGameMasterId,
+  // setGameMasterIfNotExists,
+  // getGameMasterId,
 } = useGameManager();
 
 const { getPlayerScore, updatePlayerScoreFromMember, syncPlayerScoresForRoom } =
@@ -76,10 +76,6 @@ const { getPlayerScore, updatePlayerScoreFromMember, syncPlayerScoresForRoom } =
 
 // COMPUTED PPROPERTIES
 // ============================================================
-
-const isGameMaster = computed(() => {
-  return !!playerId.value && playerId.value === gameMasterId.value;
-});
 
 const czarId = computed(() => {
   if (gameStarted.value) {
@@ -179,6 +175,11 @@ const round = computed(() => {
   if (!gameState.value.round) return null;
   return gameState.value.round;
 });
+
+// Watch for changes to playerId or gameMasterId and update isGameMaster
+watch([playerId, gameMasterId], ([newPlayerId, newGameMasterId]) => {
+  isGameMaster.value = !!newPlayerId && newPlayerId === newGameMasterId;
+});
 // ============================================================
 
 // Game State Handling
@@ -276,224 +277,126 @@ async function startNexRound() {
 }
 // ============================================================
 
-// Player Choose White Card Handling
-// ============================================================
-async function pickCard(card) {
-  if (isCzar.value) return;
-
-  whiteCardPickError.value = "";
-
-  const idx = myChosenWhiteCards.value.findIndex((c) => c.id === card.id);
-  if (idx === -1) {
-    if (myChosenWhiteCards.value.length === numberOfCardsToPlay.value) {
-      myChosenWhiteCards.value.shift(); // Remove the oldest played card from hand
-      myChosenWhiteCards.value.push(card); // Add the new card to the end of the array
-
-      return;
-    }
-
-    myChosenWhiteCards.value.push(card);
-  } else {
-    myChosenWhiteCards.value.splice(idx, 1);
-  }
-}
-
-async function resetCards() {
-  myChosenWhiteCards.value = [];
-  whiteCardPickError.value = "";
-}
-
-async function submitCards() {
-  if (myChosenWhiteCards.value.length === numberOfCardsToPlay.value) {
-    if (isSubmittingWhiteCards.value) return;
-    isSubmittingWhiteCards.value = true;
-
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        "submit_white_cards",
-        {
-          method: "POST",
-          body: {
-            czar_id: czarId.value,
-            user_id: playerId.value,
-            room_id: roomId.value,
-            submitted_cards: myChosenWhiteCards.value,
-          },
-        },
-      );
-      if (error) {
-        console.error("[EDGE] Error submitting white cards:", error);
-      } else {
-        const submittedIds = new Set(myChosenWhiteCards.value.map((c) => c.id));
-        playerHandCards.value = playerHandCards.value.filter(
-          (handCard) => !submittedIds.has(handCard.id),
-        );
-        console.log(
-          "Updated playerHandCards after submission: ",
-          playerHandCards.value,
-        );
-        myChosenWhiteCards.value = [];
-        whiteCardPickError.value = "";
-
-        isWhiteCardsSubmitted.value = true;
-
-        console.log("[EDGE] success submit_white_cards", data);
-      }
-    } finally {
-      isSubmittingWhiteCards.value = false;
-    }
-  } else {
-    const required = Number(numberOfCardsToPlay.value ?? 0);
-    const selected = myChosenWhiteCards.value.length;
-    const remaining = Math.max(required - selected, 0);
-
-    whiteCardPickError.value =
-      remaining > 0
-        ? `Pick ${remaining} more card(s).`
-        : `${required} card(s) need to be submitted!`;
-
-    console.warn(`${numberOfCardsToPlay.value} card(s) need to be submitted!`);
-  }
-}
-// ============================================================
-
-// Czar Choose Winner Handling
-// ============================================================
-async function pickWinner(playerSubmission: any) {
-  if (!isCzar.value) return;
-  selectedPlayerSubmission.value = playerSubmission;
-}
-
-async function resetWinner() {
-  selectedPlayerSubmission.value = null;
-}
-
-async function submitWinner(winnerSubmission: any) {
-  if (!isCzar.value) return;
-
-  console.log("Selected winner: ", winnerSubmission);
-
-  const { data, error } = await supabase.functions.invoke("select_winner", {
-    method: "POST",
-    body: {
-      room_id: roomId.value,
-      winner: winnerSubmission,
-    },
-  });
-
-  if (error) {
-    console.error("Error selecting winner:", error);
-  } else {
-    console.log("[EDGE] success select_winner", data);
-  }
-}
-// ============================================================
-
 // onMounted, onUnmounted
 // ============================================================
 onMounted(async () => {
-  roomId.value = await getRoomIdByCode(roomCode);
+  try {
+    roomId.value = await getRoomIdByCode(roomCode);
 
-  if (!roomId.value) {
-    console.error("Missing room ID");
-    return;
-  }
-
-  // Authentication
-  if (user.value) {
-    playerId.value = user.value.sub;
-  } else {
-    navigateTo("/login?redirect=joinGame&roomCode=" + roomCode);
-    return;
-  }
-
-  if (!playerId.value) {
-    console.error("Missing player ID");
-    return;
-  }
-
-  // Just read the game master ID, don't set it
-  gameMasterId.value = await setGameMasterIfNotExists(roomId.value);
-  console.log("Game master ID from DB:", gameMasterId.value);
-
-  await insertPlayerInRoomTable(roomId.value, playerId.value);
-
-  // JOIN REALTIME CHANNEL
-  await joinRoom(roomCode, playerId.value);
-
-  // Realtime socket listeners
-  await setupBroadcastListeners(roomId.value, playerId.value);
-  await syncPlayerScoresForRoom(roomId.value);
-
-  // Realtime table listeners
-  gameChannel.value?.on(
-    "postgres_changes",
-    {
-      event: "UPDATE",
-      schema: "public",
-      table: "rooms",
-      filter: `id=eq.${roomId.value}`,
-    },
-    (payload) => {
-      console.log("[POSTGRES CHANGES] rooms updated: ", payload);
-      if (payload.new.metadata?.game_master_id) {
-        gameMasterId.value = payload.new.metadata.game_master_id;
-        console.log(`[POSTGRES CHANGES] Game master updated to: ${gameMasterId.value}`);
-      }
-      handleGameStateChanges(payload.new.metadata);
-    },
-  );
-
-  gameChannel.value?.on(
-    "postgres_changes",
-    {
-      event: "UPDATE",
-      schema: "public",
-      table: "room_members",
-      filter: `room_id=eq.${roomId.value}`,
-    },
-    (payload) => {
-      console.log("[POSTGRES CHANGES] room_members updated: ", payload);
-      updatePlayerScoreFromMember(payload.new);
-
-      if (payload.new.status !== payload.old.status) {
-        // status update
-        // TO DO!
-      }
-    },
-  );
-
-  // Initialize realtime tracking
-  gameChannel.value?.subscribe(async (status) => {
-    if (status === "SUBSCRIBED") {
-      await trackMyStatus(myPresenceStatus.value);
+    if (!roomId.value) {
+      console.error("Missing room ID");
+      return;
     }
-  });
 
-  // SYNC GAME STATE IF ALREADY STARTED
-  const roomMetadata = await getRoomMetadata(roomId.value);
-  const metadata = roomMetadata?.metadata;
-  if (metadata?.round_status && metadata.round_status !== "lobby") {
-    const { data: handCardsData } = await supabase
-      .from("hand_cards")
-      .select("*")
-      .eq("room_id", roomId.value)
-      .eq("user_id", playerId.value);
+    // Authentication
+    if (user.value) {
+      playerId.value = user.value.sub;
+    } else {
+      navigateTo("/login?redirect=joinGame&roomCode=" + roomCode);
+      return;
+    }
 
-    playerHandCards.value = handCardsData ?? [];
+    if (!playerId.value) {
+      console.error("Missing player ID");
+      return;
+    }
 
-    const { data: cardsData } = await supabase
-      .from("cards")
-      .select("*")
-      .eq("collection_id", metadata.set_id);
+    const { data: room } = await supabase
+      .from("rooms")
+      .select("owner")
+      .eq("id", roomId.value)
+      .single();
+    gameMasterId.value = room?.owner ?? null;
+    console.log("Game master ID from DB:", gameMasterId.value);
 
-    collectionCards.value = cardsData ?? [];
+    await insertPlayerInRoomTable(roomId.value, playerId.value);
 
+    // JOIN REALTIME CHANNEL
+    await joinRoom(roomCode, playerId.value);
+
+    // Realtime socket listeners
+    await setupBroadcastListeners(roomId.value, playerId.value);
     await syncPlayerScoresForRoom(roomId.value);
 
-    blackCard.value = metadata.black_card;
-    gameStarted.value = true;
-    handleGameStateChanges(metadata);
+    // Realtime table listeners
+    gameChannel.value?.on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "rooms",
+        filter: `id=eq.${roomId.value}`,
+      },
+      (payload) => {
+        console.log("[POSTGRES CHANGES] rooms updated: ", payload);
+        if (payload.new.owner) {
+          gameMasterId.value = payload.new.owner;
+        }
+        if (payload.new.metadata && typeof payload.new.metadata === "object") {
+          handleGameStateChanges(payload.new.metadata);
+        }
+      },
+    );
+
+    gameChannel.value?.on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "room_members",
+        filter: `room_id=eq.${roomId.value}`,
+      },
+      (payload) => {
+        console.log("[POSTGRES CHANGES] room_members updated: ", payload);
+        updatePlayerScoreFromMember(payload.new);
+
+        if (payload.new.status !== payload.old.status) {
+          // status update
+          // TO DO!
+        }
+      },
+    );
+
+    // Initialize realtime tracking
+    gameChannel.value?.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        await trackMyStatus(myPresenceStatus.value);
+      }
+    });
+
+    // SYNC GAME STATE IF ALREADY STARTED
+    const roomMetadata = await getRoomMetadata(roomId.value);
+    const metadata = roomMetadata?.metadata;
+
+    if (
+      metadata &&
+      typeof metadata === "object" &&
+      metadata.round_status &&
+      metadata.round_status !== "lobby"
+    ) {
+      const { data: handCardsData } = await supabase
+        .from("hand_cards")
+        .select("*")
+        .eq("room_id", roomId.value)
+        .eq("user_id", playerId.value);
+
+      playerHandCards.value = handCardsData ?? [];
+
+      const { data: cardsData } = await supabase
+        .from("cards")
+        .select("*")
+        .eq("collection_id", metadata.set_id);
+
+      collectionCards.value = cardsData ?? [];
+
+      await syncPlayerScoresForRoom(roomId.value);
+
+      blackCard.value = metadata.black_card;
+      gameStarted.value = true;
+      handleGameStateChanges(metadata as object);
+    }
+  } catch (err) {
+    console.error("[onMounted] Error:", err);
   }
 });
 
@@ -536,6 +439,20 @@ const deleteWhiteCardAtGap = (gapIndex?: number) => {
 };
 // ============================================================
 
+const isRoomCodeCopied = ref<boolean>(false);
+
+async function copyRoomCode() {
+  navigator.clipboard
+    .writeText(roomCode)
+    .then(() => {
+      isRoomCodeCopied.value = true;
+    })
+    .catch((err) => {
+      console.error("Failed to copy room code: ", err);
+    });
+}
+
+
 // DEV DEBUGGING
 // ============================================================
 const dev2gaps = ref(false);
@@ -543,73 +460,108 @@ const dev2gaps = ref(false);
 </script>
 
 <template>
-  <main class="flex flex-col items-center min-h-screen scroll-x- pt-48">
-    <!-- Lobby Info Section -->
-    <section
-      class="z-10 shadow-xs shadow-white fixed top-0 left-0 pb-2 w-full bg-white pt-[env(safe-area-inset-top),1.5rem)]">
-      <div class="flex items-start justify-between h-fit p-4">
-        <div class="">
-          <h1 class="text-2xl font-bold">Room: {{ roomCode }}</h1>
-          <!-- <p class="text-sm text-gray-500">
-            {{ players.length }} players online
-          </p> -->
-          <!-- <p class="text-sm text-blue-500">({{ roundStatus }})</p> -->
-          <p v-if="round" class="text-sm text-blue-500">{{ round }}. Round</p>
-        </div>
-        <div class="flex gap-2">
-          <button @click="deletePlayerFromRoomTable(roomId, playerId)"
-            class="px-6 py-4 rounded-full text-gray-500 border border-gray-300 text-sm font-semibold rounded-xl hover:bg-gray-50">
-            Leave
-          </button>
-        </div>
+
+  <!-- Header -->
+  <header class="fixed top-0 w-full flex items-center justify-start p-4 bg-white z-40">
+    <div class="cursor-pointer" @click="deletePlayerFromRoomTable(roomId, playerId)">
+      <svg xmlns="http://www.w3.org/2000/svg" width="38" height="33" viewBox="0 0 38 33" fill="none">
+        <path
+          d="M37 31.8505C32.596 26.4042 28.6852 23.314 25.2676 22.5797C21.85 21.8454 18.5962 21.7345 15.5062 22.2469V32L1 16.0852L15.5062 1.00003V10.2699C21.22 10.3155 26.0776 12.3922 30.079 16.5C34.0798 20.6078 36.3868 25.7247 37 31.8505Z"
+          stroke="black" stroke-width="2" stroke-linejoin="round" />
+      </svg>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="relative flex flex-col items-center justify-start min-h-svh w-full max-w-2xl px-8 pb-8 pt-4 gap-4">
+    <div class="h-[33px] w-full mb-4"></div>
+    <p class="text-black text-4xl font-normal">Create Game</p>
+
+    <!-- Game Mode Selection -->
+    <div
+      class="w-full bg-neutral-200 rounded-lg text-black flex flex-row items-stretch justify-between p-5 hover:bg-neutral-300 cursor-pointer">
+      <div class="flex flex-col gap-1 w-full">
+        <p class="text-3xl font-semibold">Classic</p>
+        <p class="text-sm font-normal">The epic game just as you know it.</p>
       </div>
-    </section>
-    <!-- Player List -->
-    <div class="flex flex-row px-4 overflow-x-auto gap-2">
-      <div v-for="player in players" :key="player.user_id"
-        class="flex flex-col items-start justify-between gap-2 min-w-32 rounded-xl p-2 text-xs font-medium border transition-all"
-        :class="czarId === player.user_id
-          ? 'border-yellow-100 bg-yellow-100 text-yellow-700'
-          : player.status === 'submitted'
-            ? 'border-green-50 bg-green-50 text-green-200'
-            : 'border-gray-50 bg-gray-50 text-gray-600'
-          ">
-        <div class="w-full flex flex-row items-center justify-start gap-1 transition">
-          <span class="text-md font-bold transition">{{
-            player.user_name
-          }}</span>
-          <span v-if="player.user_id === playerId" class="text-md font-normal transition">(you)</span>
-        </div>
-        <div class="w-full flex flex-row items-center justify-between gap-2 transition">
-          <span class="">{{ getPlayerScore(player.user_id) }}</span>
-          <span class="text-[0.6rem] uppercase transition">{{
-            player.status
-          }}</span>
-        </div>
+      <div class="flex justify-center items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="23" viewBox="0 0 12 23" fill="none">
+          <path fill-rule="evenodd" clip-rule="evenodd"
+            d="M8.14441 11.2896L1.49204 4.63721L2.82233 3.30692L10.1398 10.6244C10.3162 10.8009 10.4153 11.0401 10.4153 11.2896C10.4153 11.539 10.3162 11.7783 10.1398 11.9547L2.82233 19.2722L1.49204 17.9419L8.14441 11.2896Z"
+            fill="black" />
+        </svg>
       </div>
     </div>
-    <!-- Waiting for game to start -->
-    <section v-if="!isGameMaster && !gameStarted"
-      class="bg-white rounded w-full max-w-2xl p-12 flex flex-col items-center justify-center">
-      <p class="text-blue-500">Waiting for the Game Master to start...</p>
+    <div
+      class="w-full bg-neutral-200 rounded-lg text-black flex flex-row items-stretch justify-between p-5 hover:bg-neutral-300 cursor-pointer">
+      <div class="flex flex-col gap-1 w-full">
+        <p class="text-3xl font-semibold">Extended</p>
+        <p class="text-sm font-normal">Spice up your usual game with some jokers.</p>
+      </div>
+      <div class="flex justify-center items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="23" viewBox="0 0 12 23" fill="none">
+          <path fill-rule="evenodd" clip-rule="evenodd"
+            d="M8.14441 11.2896L1.49204 4.63721L2.82233 3.30692L10.1398 10.6244C10.3162 10.8009 10.4153 11.0401 10.4153 11.2896C10.4153 11.539 10.3162 11.7783 10.1398 11.9547L2.82233 19.2722L1.49204 17.9419L8.14441 11.2896Z"
+            fill="black" />
+        </svg>
+      </div>
+    </div>
+    <div
+      class="w-full bg-neutral-200 rounded-lg text-black flex flex-row items-stretch justify-between p-5 hover:bg-neutral-300 cursor-pointer">
+      <div class="flex flex-col gap-1 w-full">
+        <p class="text-3xl font-semibold">Creative Mode</p>
+        <p class="text-sm font-normal">Write ALL your own cards. Yes, even the black ones.</p>
+      </div>
+      <div class="flex justify-center items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="23" viewBox="0 0 12 23" fill="none">
+          <path fill-rule="evenodd" clip-rule="evenodd"
+            d="M8.14441 11.2896L1.49204 4.63721L2.82233 3.30692L10.1398 10.6244C10.3162 10.8009 10.4153 11.0401 10.4153 11.2896C10.4153 11.539 10.3162 11.7783 10.1398 11.9547L2.82233 19.2722L1.49204 17.9419L8.14441 11.2896Z"
+            fill="black" />
+        </svg>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <!-- Player List, Room Info -->
+  <main
+    class="fixed bottom-[max(env(safe-area-inset-top),1rem)] flex flex-col items-center justify-between min-h-lg w-full max-w-2xl px-8 pb-8 pt-4 gap-4">
+    <!-- Player List -->
+    <section class="flex flex-row w-full overflow-x-auto gap-4">
+      <div v-for="player in players" :key="player.user_id" class="flex flex-col gap-2 items-center transition-all"
+        :class="czarId === player.user_id
+          ? 'border-yellow-100 text-yellow-700'
+          : player.status === 'submitted'
+            ? 'border-green-50 text-green-200'
+            : 'border-black text-black'
+          ">
+        <div class="size-12 rounded-full border-[3px] border-current bg-gray-500"></div>
+        <p class="text-xs">{{ player.user_name }}</p>
+      </div>
     </section>
 
     <!-- Start Game Button -->
-    <section v-if="!gameStarted && isGameMaster"
-      class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
-      <button @click="startGame()" :disabled="isStartingGame"
-        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70">
-        {{ isStartingGame ? "Starting..." : "Start Game" }}
-      </button>
+    <section v-if="!gameStarted" class="flex flew-row items-stretch w-full transition-all justify-between gap-4">
+      <div class="flex flex-col gap-2 w-full">
+        <div
+          class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-neutral-50 rounded-lg border-[3px] border-black">
+          <div class="w-full flex flex-row items-center justify-between cursor-pointer hover:text-blue-500">
+            <div class="w-full py-4 px-4 text-xl font-normal">
+              {{ roomCode.trim().toUpperCase() }}
+            </div>
+            <div @click="copyRoomCode()" class="flex items-center px-4 h-full bg-neutral-200 h-full">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <path d="M18.4903 3.46692H4.62256V18.4903" stroke="black" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+                <path
+                  d="M9.24512 8.08948H23.1128V21.9572C23.1128 22.5702 22.8693 23.1581 22.4359 23.5915C22.0024 24.025 21.4145 24.2685 20.8015 24.2685H11.5564C10.9434 24.2685 10.3555 24.025 9.92208 23.5915C9.48863 23.1581 9.24512 22.5702 9.24512 21.9572V8.08948Z"
+                  stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+      <Button v-if="isGameMaster" @click="startGame()" variant="primary" size="md" class="rounded-xl">Start</Button>
     </section>
-
-    <p v-if="
-      whiteCardPickError &&
-      !isCzar &&
-      roundStatus === 'round_start' &&
-      !isWhiteCardsSubmitted
-    " class="text-red-500 text-sm mb-2">
-      {{ whiteCardPickError }}
-    </p>
   </main>
 </template>

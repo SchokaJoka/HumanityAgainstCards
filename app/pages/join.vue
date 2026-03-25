@@ -49,31 +49,26 @@
 
       <!-- Login Action -->
       <div v-if="!user || !user.is_anomymous" class="w-full flex flex-row items-center justify-end gap-4">
-        <p class="text-black text-md font-normal">or</p>
+        <p v-if="user" class="text-black text-md font-normal">or</p>
         <button class="px-6 py-4 bg-neutral-200 text-white rounded-xl hover:bg-neutral-300 transition">
           <span class="text-black text-md font-normal">Login / Sign Up</span>
         </button>
       </div>
 
-      <!-- Guest Name Input -->
-      <div v-if="user" class="flex flex-col gap-2 w-full">
+      <!-- Join Room by Code -->
+      <div class="flex flex-col gap-2 w-full">
         <div
           class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-neutral-50 rounded-lg border-[3px] border-black">
           <div class="w-full flex flex-row items-center justify-between cursor-pointer hover:text-blue-500">
-            <input
-              v-model="roomCodeInput"
-              placeholder="X4DD"
-              type="text"
-              class="w-full py-4 px-4 text-3xl font-normal"
-              @keyup.enter="joinRoom"
-            />
+            <input v-model="roomCodeInput" placeholder="X4DD" type="text" class="w-full py-4 px-4 text-3xl font-normal"
+              @keyup.enter="joinRoom" />
             <div @click="joinRoom" class="flex items-center px-8 h-full bg-neutral-200 h-full">
               <span class="text-black text-md font-normal">Join</span>
             </div>
           </div>
         </div>
       </div>
-      
+
     </div>
   </main>
 </template>

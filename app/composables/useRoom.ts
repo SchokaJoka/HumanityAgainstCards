@@ -77,59 +77,85 @@ export function useRoom() {
       return;
     }
   }
+
   async function deletePlayerFromRoomTable(roomId: string, playerId: string) {
     if (!roomId || !playerId) return;
 
     try {
-      // 1. Check if leaving player is the game master
-      const { data: room } = await supabase
+      console.log(
+        `[Leave] Player ${playerId} attempting to leave room ${roomId}`,
+      );
+
+      // 1. Check if leaving player is the owner (game master)
+      const { data: room, error: roomError } = await supabase
         .from("rooms")
-        .select("metadata")
+        .select("owner")
         .eq("id", roomId)
         .single();
 
-      if (room?.metadata?.game_master_id === playerId) {
+      if (roomError) {
+        console.error("[Leave] Error fetching room:", roomError);
+        return;
+      }
+
+      console.log(
+        `[Leave] Current owner: ${room?.owner}, leaving player: ${playerId}`,
+      );
+
+      if (room?.owner === playerId) {
+        console.log(
+          "[Leave] Leaving player IS the owner, finding successor...",
+        );
+
         // 2. Find the next player in join order (oldest member)
-        const { data: nextPlayer } = await supabase
+        const { data: nextPlayers, error: nextPlayersError } = await supabase
           .from("room_members")
           .select("user_id")
           .eq("room_id", roomId)
-          .neq("user_id", playerId) // Exclude the leaving player
+          .neq("user_id", playerId)
           .order("joined_at", { ascending: true })
-          .limit(1)
-          .single();
+          .limit(1);
 
-        // 3. If there's a next player, promote them to game master
+        if (nextPlayersError) {
+          console.error("[Leave] Error finding next player:", nextPlayersError);
+        }
+
+        const nextPlayer = nextPlayers?.[0];
+
         if (nextPlayer) {
-          await supabase
+          console.log(`[Leave] Promoting ${nextPlayer.user_id} to owner`);
+
+          const { error: updateError } = await supabase
             .from("rooms")
             .update({
-              metadata: {
-                ...(room.metadata ?? {}),
-                game_master_id: nextPlayer.user_id,
-              },
+              owner: nextPlayer.user_id,
             })
             .eq("id", roomId);
 
-          console.log(
-            `[GameMaster] Promoted ${nextPlayer.user_id} to game master`,
-          );
+          if (updateError) {
+            console.error("[Leave] Error updating owner:", updateError);
+          } else {
+            console.log(`[Owner] Promoted ${nextPlayer.user_id} to owner`);
+          }
+        } else {
+          console.log("[Leave] No other players found to promote");
         }
       }
 
-      // 4. Now delete the player
-      const { error } = await supabase
+      // 3. Now delete the player
+      const { error: deleteError } = await supabase
         .from("room_members")
         .delete()
         .eq("room_id", roomId)
         .eq("user_id", playerId);
 
-      if (error) {
-        console.error("Error leaving room:", error);
+      if (deleteError) {
+        console.error("Error leaving room:", deleteError);
         return;
       }
 
       isLeaving.value = true;
+      resetPlayerList();
       await navigateTo("/");
     } catch (err) {
       console.error("Error in deletePlayerFromRoomTable:", err);
@@ -216,6 +242,10 @@ export function useRoom() {
     gameChannel.value.on("broadcast", { event: "game_start" }, () => {
       gameStarted.value = true;
     });
+  }
+
+  async function resetPlayerList() {
+    players.value = [];
   }
 
   return {
