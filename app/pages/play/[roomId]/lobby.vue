@@ -9,17 +9,12 @@ const supabase = useSupabaseClient();
 const route = useRoute();
 const roomId = ref<string>("");
 const playerId = ref<string>("");
+const gameMasterId = ref<string | null>(null);
 
 const roomCode = String(route.params.roomId ?? "").toUpperCase();
 
 const players = useState<any[]>("players", () => []);
 const gameChannel = useState<RealtimeChannel | null>("gameChannel", () => null);
-const isGameMaster = useState<boolean>("isGameMaster", () => false);
-
-watchEffect(() => {
-  isGameMaster.value =
-    !!playerId.value && playerId.value === gameMasterId.value;
-});
 
 const gameState = ref<{}>({});
 const roundStatus = ref<string>("lobby");
@@ -71,6 +66,8 @@ const {
   // Functions
   initializeGame,
   initializeNextRound,
+  setGameMasterIfNotExists,
+  getGameMasterId,
 } = useGameManager();
 
 const { getPlayerScore, updatePlayerScoreFromMember, syncPlayerScoresForRoom } =
@@ -79,9 +76,9 @@ const { getPlayerScore, updatePlayerScoreFromMember, syncPlayerScoresForRoom } =
 
 // COMPUTED PPROPERTIES
 // ============================================================
-const gameMasterId = computed(() => {
-  const firstPlayer = (players.value as any[])[0];
-  return firstPlayer?.user_id ?? null;
+
+const isGameMaster = computed(() => {
+  return !!playerId.value && playerId.value === gameMasterId.value;
 });
 
 const czarId = computed(() => {
@@ -402,10 +399,6 @@ onMounted(async () => {
     return;
   }
 
-  // Load room metadata only after roomId is known
-  const roomMetadata = await getRoomMetadata(roomId.value);
-  console.log("Fetched roomMetadata on mount:", roomMetadata);
-
   // Authentication
   if (user.value) {
     playerId.value = user.value.sub;
@@ -418,6 +411,30 @@ onMounted(async () => {
     console.error("Missing player ID");
     return;
   }
+
+  // Load room metadata only after roomId is known
+  const roomMetadata = await getRoomMetadata(roomId.value);
+  console.log("Fetched roomMetadata on mount:", roomMetadata);
+
+  gameMasterId.value = await setGameMasterIfNotExists(
+    roomId.value,
+    playerId.value,
+  );
+  console.log(
+    "After setGameMaster - gameMasterId.value:",
+    gameMasterId.value,
+    "playerId:",
+    playerId.value,
+    "Match:",
+    gameMasterId.value === playerId.value,
+  );
+
+  console.log(
+    "Before setGameMaster, roomId:",
+    roomId.value,
+    "playerId:",
+    playerId.value,
+  );
 
   await insertPlayerInRoomTable(roomId.value, playerId.value);
 
@@ -564,43 +581,63 @@ const dev2gaps = ref(false);
           </button>
         </div>
       </div>
-
-      <!-- Player List -->
-      <div class="flex flex-row px-4 overflow-x-auto gap-2">
+    </section>
+    <!-- Player List -->
+    <div class="flex flex-row px-4 overflow-x-auto gap-2">
+      <div
+        v-for="player in players"
+        :key="player.user_id"
+        class="flex flex-col items-start justify-between gap-2 min-w-32 rounded-xl p-2 text-xs font-medium border transition-all"
+        :class="
+          czarId === player.user_id
+            ? 'border-yellow-100 bg-yellow-100 text-yellow-700'
+            : player.status === 'submitted'
+              ? 'border-green-50 bg-green-50 text-green-200'
+              : 'border-gray-50 bg-gray-50 text-gray-600'
+        "
+      >
         <div
-          v-for="player in players"
-          :key="player.user_id"
-          class="flex flex-col items-start justify-between gap-2 min-w-32 rounded-xl p-2 text-xs font-medium border transition-all"
-          :class="
-            czarId === player.user_id
-              ? 'border-yellow-100 bg-yellow-100 text-yellow-700'
-              : player.status === 'submitted'
-                ? 'border-green-50 bg-green-50 text-green-200'
-                : 'border-gray-50 bg-gray-50 text-gray-600'
-          "
+          class="w-full flex flex-row items-center justify-start gap-1 transition"
         >
-          <div
-            class="w-full flex flex-row items-center justify-start gap-1 transition"
+          <span class="text-md font-bold transition">{{
+            player.user_name
+          }}</span>
+          <span
+            v-if="player.user_id === playerId"
+            class="text-md font-normal transition"
+            >(you)</span
           >
-            <span class="text-md font-bold transition">{{
-              player.user_name
-            }}</span>
-            <span
-              v-if="player.user_id === playerId"
-              class="text-md font-normal transition"
-              >(you)</span
-            >
-          </div>
-          <div
-            class="w-full flex flex-row items-center justify-between gap-2 transition"
-          >
-            <span class="">{{ getPlayerScore(player.user_id) }}</span>
-            <span class="text-[0.6rem] uppercase transition">{{
-              player.status
-            }}</span>
-          </div>
+        </div>
+        <div
+          class="w-full flex flex-row items-center justify-between gap-2 transition"
+        >
+          <span class="">{{ getPlayerScore(player.user_id) }}</span>
+          <span class="text-[0.6rem] uppercase transition">{{
+            player.status
+          }}</span>
         </div>
       </div>
+    </div>
+    <!-- Waiting for game to start -->
+    <section
+      v-if="!isGameMaster && !gameStarted"
+      class="bg-white rounded w-full max-w-2xl p-12 flex flex-col items-center justify-center"
+    >
+      <p class="text-blue-500">Waiting for the Game Master to start...</p>
+    </section>
+
+    <!-- Start Game Button -->
+    <section
+      v-if="!gameStarted && isGameMaster"
+      class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all"
+    >
+      <button
+        @click="startGame()"
+        :disabled="isStartingGame"
+        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
+      >
+        {{ isStartingGame ? "Starting..." : "Start Game" }}
+      </button>
     </section>
 
     <p

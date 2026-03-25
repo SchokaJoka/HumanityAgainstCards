@@ -14,12 +14,7 @@ const roomCode = String(route.params.roomId ?? "").toUpperCase();
 
 const players = useState<any[]>("players", () => []);
 const gameChannel = useState<RealtimeChannel | null>("gameChannel", () => null);
-const isGameMaster = useState<boolean>("isGameMaster", () => false);
-
-watchEffect(() => {
-  isGameMaster.value =
-    !!playerId.value && playerId.value === gameMasterId.value;
-});
+const gameMasterId = ref<string | null>(null);
 
 const gameState = ref<{}>({});
 const roundStatus = ref<string>("lobby");
@@ -71,6 +66,8 @@ const {
   // Functions
   initializeGame,
   initializeNextRound,
+  setGameMasterIfNotExists,
+  getGameMasterId,
 } = useGameManager();
 
 const { getPlayerScore, updatePlayerScoreFromMember, syncPlayerScoresForRoom } =
@@ -79,11 +76,10 @@ const { getPlayerScore, updatePlayerScoreFromMember, syncPlayerScoresForRoom } =
 
 // COMPUTED PPROPERTIES
 // ============================================================
-const gameMasterId = computed(() => {
-  const firstPlayer = (players.value as any[])[0];
-  return firstPlayer?.user_id ?? null;
-});
 
+const isGameMaster = computed(() => {
+  return !!playerId.value && playerId.value === gameMasterId.value;
+});
 const czarId = computed(() => {
   if (gameStarted.value) {
     return gameState.value.czar_id ?? null;
@@ -418,6 +414,8 @@ onMounted(async () => {
     console.error("Missing player ID");
     return;
   }
+  await setGameMasterIfNotExists(roomId.value, playerId.value);
+  gameMasterId.value = await getGameMasterId(roomId.value);
 
   await insertPlayerInRoomTable(roomId.value, playerId.value);
 
@@ -762,14 +760,6 @@ const dev2gaps = ref(false);
       </button>
     </section>
 
-    <!-- Waiting for game to start -->
-    <section
-      v-if="!isGameMaster && !gameStarted"
-      class="bg-white rounded w-full max-w-2xl p-12 flex flex-col items-center justify-center"
-    >
-      <p class="text-blue-500">Waiting for the Game Master to start...</p>
-    </section>
-
     <!-- Submit Button -->
     <section
       v-if="
@@ -795,20 +785,6 @@ const dev2gaps = ref(false);
               ? "Submit"
               : `${myChosenWhiteCards.length} / ${numberOfCardsToPlay} Cards`
         }}
-      </button>
-    </section>
-
-    <!-- Start Game Button -->
-    <section
-      v-if="!gameStarted && isGameMaster"
-      class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all"
-    >
-      <button
-        @click="startGame()"
-        :disabled="isStartingGame"
-        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
-      >
-        {{ isStartingGame ? "Starting..." : "Start Game" }}
       </button>
     </section>
 

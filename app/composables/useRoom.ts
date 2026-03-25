@@ -10,7 +10,10 @@ export function useRoom() {
 
   // VARIABLES
   const supabase = useSupabaseClient();
-  const gameChannel = useState<RealtimeChannel | null>("gameChannel", () => null);
+  const gameChannel = useState<RealtimeChannel | null>(
+    "gameChannel",
+    () => null,
+  );
   const isLeaving = ref<boolean>(false);
   const gameStarted = ref<boolean>(false);
   const players = useState<any[]>("players", () => []);
@@ -45,7 +48,6 @@ export function useRoom() {
     }
     return data;
   }
-
   async function insertPlayerInRoomTable(roomId: string, playerId: string) {
     const { error } = await supabase.from("room_members").upsert(
       {
