@@ -40,7 +40,7 @@
             @click="goToProfile">
             Profile
           </button>
-          <button class="text-left px-4 py-2 hover:bg-gray-100 text-2xl font-normal" @click="closeMenu">
+          <button class="text-left px-4 py-2 hover:bg-gray-100 text-2xl font-normal" @click="navigateTo('/sets')">
             Sets
           </button>
           <button v-if="user && !user.is_anonymous" class="text-left px-4 py-2 hover:bg-gray-100 text-2xl font-normal"
