@@ -7,7 +7,7 @@
         <line y1="12" x2="29" y2="12" />
         <line y1="22" x2="29" y2="22" />
       </svg>
-    </div> 
+    </div>
   </header>
 
   <!-- Menu overlay -->
@@ -15,7 +15,8 @@
     <div class="absolute inset-0 bg-black/40 transition-opacity duration-300"
       :class="isMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'" @click="closeMenu" />
 
-    <aside class="absolute left-0 top-0 h-svh w-64 flex flex-col bg-zinc-200 shadow-lg transition-transform duration-300 ease-out"
+    <aside
+      class="absolute left-0 top-0 h-svh w-64 flex flex-col bg-zinc-200 shadow-lg transition-transform duration-300 ease-out"
       :class="isMenuOpen ? 'translate-x-0' : '-translate-x-full'">
       <div class="flex items-center justify-between p-4">
         <div class="cursor-pointer" @click="closeMenu">
@@ -31,12 +32,20 @@
       <nav class="flex flex-col gap-2 h-full justify-between">
         <div class="flex flex-col gap-2">
           <button v-if="!user || user.is_anonymous" class="text-left px-4 py-2 hover:bg-gray-100 text-2xl font-normal"
-            @click="handleAuthAction">Log in</button>
+            @click="handleAuthAction">
+            Log in
+          </button>
           <button v-if="user && !user.is_anonymous" class="text-left px-4 py-2 hover:bg-gray-100 text-2xl font-normal"
-            @click="goToProfile">Profile</button>
-          <button class="text-left px-4 py-2 hover:bg-gray-100 text-2xl font-normal" @click="closeMenu">Sets</button>
+            @click="goToProfile">
+            Profile
+          </button>
+          <button class="text-left px-4 py-2 hover:bg-gray-100 text-2xl font-normal" @click="closeMenu">
+            Sets
+          </button>
           <button v-if="user && !user.is_anonymous" class="text-left px-4 py-2 hover:bg-gray-100 text-2xl font-normal"
-            @click="handleAuthAction">Logout</button>
+            @click="handleAuthAction">
+            Logout
+          </button>
         </div>
         <div v-if="user" class="flex flex-col gap-2 p-4">
           <div v-if="editingGuestName"
@@ -53,16 +62,15 @@
               </div>
             </div>
           </div>
-          <div v-else class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-neutral-50 rounded-lg border-[3px] border-black">
+          <div v-else
+            class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-neutral-50 rounded-lg border-[3px] border-black">
             <button @click="startEditGuestName"
               class="w-full flex flex-row items-center justify-between gap-1 cursor-pointer hover:text-blue-500">
               <span class="py-4 pl-4 text-lg font-normal">
                 {{ user?.user_metadata?.full_name || "Guest" }}
-
               </span>
               <div class="flex items-center px-4 h-full bg-neutral-400 h-full">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
-                  stroke="black">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="black">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
@@ -77,23 +85,17 @@
 
   <main class="relative flex flex-col items-center justify-center min-h-svh w-full max-w-2xl p-8 gap-8">
     <div class="flex flex-col items-center justify-center h-svh w-full p-8 gap-8">
-      <h1 class="w-full h-fit text-black text-5xl font-normal">Cards Against Humanity</h1>
-      <button @click="createGame"
-        class="w-full h-24 px-6 py-3 bg-zinc-300 text-white rounded-xl hover:bg-zinc-400 transition">
+      <h1 class="w-full h-fit text-black text-5xl font-normal">
+        Cards Against Humanity
+      </h1>
+      <button @click="createGame()"
+        class="w-full h-24 px-6 py-3 bg-neutral-200 text-white rounded-xl hover:bg-neutral-300 transition">
         <span class="text-black text-3xl font-normal">Create Game</span>
       </button>
-      <!-- <input v-if="isJoiningGame"
-          v-model="roomCodeInput"
-          type="text"
-          placeholder="Enter Room Code (e.g. A7X9)"
-          class="w-full px-4 py-2 mb-4 border rounded"
-          @keyup.enter="joinGame"
-        /> -->
-      <button @click="joinGame" :disabled="!roomCodeInput"
-        class="w-full h-24 px-6 py-3 bg-zinc-300 text-white rounded-xl hover:bg-zinc-400 transition">
+      <button @click="joinGame()"
+        class="w-full h-24 px-6 py-3 bg-neutral-200 text-white rounded-xl hover:bg-neutral-300 transition">
         <span class="text-black text-3xl font-normal">Join Game</span>
       </button>
-
     </div>
 
     <!-- How To Play -->
@@ -102,9 +104,15 @@
       <ul class="w-full h-fit text-black text-xl font-normal px-4 list-disc list-outside pl-6">
         <li>Each player starts with a hand of 10 white cards.</li>
         <li>A black card is chosen at random and displayed to all players.</li>
-        <li>The black card will present a number i.e. 2 Each player must play this number of white cards.</li>
-        <li>The first player starts as the Card Czar. Their role is to select their favourite white card as the winner.
-          The winning player receives 1 point!</li>
+        <li>
+          The black card will present a number i.e. 2 Each player must play this
+          number of white cards.
+        </li>
+        <li>
+          The first player starts as the Card Czar. Their role is to select
+          their favourite white card as the winner. The winning player receives
+          1 point!
+        </li>
       </ul>
     </div>
 
@@ -113,7 +121,6 @@
 </template>
 
 <script setup>
-const roomCodeInput = ref("");
 const lobbyError = ref("");
 const supabase = useSupabaseClient();
 const user = useSupabaseUser();
@@ -177,58 +184,53 @@ const saveGuestName = async () => {
 // Nuxt's built-in navigation helper
 const navigateToRoom = async (roomCode) => {
   await navigateTo(`/play/${roomCode}/lobby`);
-}
+};
 
 // Generates a random 4-character string for easy sharing
 const generateRoomCode = () => {
-  return Math.random().toString(36).substring(2, 6).toUpperCase()
-}
+  return Math.random().toString(36).substring(2, 6).toUpperCase();
+};
 
 const createGame = async () => {
-  console.log('Creating a new game room...')
-  lobbyError.value = ''
+  console.log("Creating a new game room...");
+  lobbyError.value = "";
 
   if (!user.value) {
     await navigateTo("/login?redirect=createGame");
     return;
   }
 
-  const newRoomCode = generateRoomCode()
+  const newRoomCode = generateRoomCode();
 
   const { data: createdRoom, error: roomInsertError } = await supabase
-    .from('rooms')
+    .from("rooms")
     .insert({
       code: newRoomCode,
       owner: user.value.id || user.value.sub,
-      metadata: { round_status: "lobby" },
+      metadata: {
+        round_status: "lobby",
+        game_master_id: user.value.id || user.value.sub
+      },
     })
     .select()
-    .single()
+    .single();
 
   if (roomInsertError) {
-    lobbyError.value = 'Could not create room in database. Please try again.'
-    console.error('Room insert failed:', roomInsertError)
-    return
-  }
-
-  console.log('Created room:', createdRoom)
-
-  // Navigate the host to the new room
-  await navigateToRoom(createdRoom.code)
-}
-
-const joinGame = async () => {
-  lobbyError.value = ''
-
-  const roomCode = roomCodeInput.value.trim().toUpperCase()
-  if (!roomCode) return
-
-  if (!user.value) {
-    await navigateTo("/login?redirect=joinGame&roomCode=" + roomCode);
+    lobbyError.value = "Could not create room in database. Please try again.";
+    console.error("Room insert failed:", roomInsertError);
     return;
   }
 
-  await navigateToRoom(roomCode);
+  console.log("Created room:", createdRoom);
+
+  // Navigate the host to the new room
+  await navigateToRoom(createdRoom.code);
+};
+
+const joinGame = async () => {
+  lobbyError.value = "";
+
+  await navigateTo("/join");
 };
 
 const handleAuthAction = async () => {

@@ -4,6 +4,10 @@
       ref="carouselContainerRef"
       class="carousel-container"
       @wheel.prevent="handleScroll"
+      @touchstart.passive="handleTouchStart"
+      @touchmove.prevent="handleTouchMove"
+      @touchend="handleTouchEnd"
+      @touchcancel="handleTouchEnd"
     >
       <article
         v-for="(handCard, index) in handCards"
@@ -45,8 +49,10 @@ const current = ref(0);
 const scrollLockMs = 120;
 let lastScrollAt = 0;
 const isMobile = ref(false);
-let draggable: any = null;
-let lastDragX = 0;
+let touchStartX = 0;
+let dragStartIndex = 0;
+let isTouchDragging = false;
+const spacing = 75;
 
 const maxIndex = computed(() => Math.max(0, props.handCards.length - 1));
 
@@ -64,24 +70,26 @@ const getCardText = (cardId: string) =>
 const isSelected = (card: HandCard) =>
   !!props.selectedCardIds?.some((id) => String(id) === String(card.id));
 
-const emitSelect = (card: HandCard) => emit("select-card", card);
+const emitSelect = (card: HandCard) => {
+  if (isTouchDragging) {
+    isTouchDragging = false;
+    return;
+  }
+
+  emit("select-card", card);
+};
 
 const getCardStyle = (index: number) => {
   const offsetFromCenter = index - current.value;
   const zIndex =
     offsetFromCenter === 0 ? 1000 : 100 - Math.abs(offsetFromCenter);
-
-  const pivotX = 50;
-  const spacing = 75;
   const translateX = offsetFromCenter * spacing;
-
-  // Rotation based on offset: center card has 0 rotation
   const rotationDeg = offsetFromCenter * 10;
 
   return {
     zIndex: String(zIndex),
     transform: `rotateZ(${rotationDeg}deg) translateX(${translateX}px)`,
-    transformOrigin: `${pivotX}% 100%`,
+    transformOrigin: "50% 100%",
   };
 };
 
@@ -104,86 +112,63 @@ const handleScroll = (event: WheelEvent) => {
   lastScrollAt = now;
 };
 
-const initializeDraggable = () => {
+const handleTouchStart = (event: TouchEvent) => {
   if (!isMobile.value) return;
-  if (!carouselContainerRef.value) return;
-  if (draggable) {
-    Draggable.get(carouselContainerRef.value)?.kill();
+  const touch = event.touches[0];
+  if (!touch) return;
+
+  touchStartX = touch.clientX;
+  dragStartIndex = current.value;
+  isTouchDragging = false;
+};
+
+const handleTouchMove = (event: TouchEvent) => {
+  if (!isMobile.value) return;
+  const touch = event.touches[0];
+  if (!touch) return;
+
+  const deltaX = touch.clientX - touchStartX;
+  if (Math.abs(deltaX) > 8) {
+    isTouchDragging = true;
   }
 
-  lastDragX = 0;
+  const movement = Math.round(deltaX / spacing);
+  const nextIndex = Math.max(
+    0,
+    Math.min(dragStartIndex - movement, maxIndex.value),
+  );
+  current.value = nextIndex;
+};
 
-  let dragStartIndex = 0;
-
-  draggable = Draggable.create(carouselContainerRef.value, {
-    type: "x",
-    edgeResistance: 0.85,
-    bounds: {
-      minX: -(maxIndex.value * 75),
-      maxX: 0,
-    },
-    inertia: true,
-    onPress: function () {
-      dragStartIndex = current.value;
-    },
-    onDrag: function () {
-      const spacing = 75;
-      // Calculate movement from initial press position
-      const movement = Math.round(this.x / spacing);
-
-      // Index change: negative x = moving left = increasing index
-      let newIndex = dragStartIndex - movement;
-      newIndex = Math.max(0, Math.min(newIndex, maxIndex.value));
-
-      current.value = newIndex;
-    },
-    onRelease: function () {
-      gsap.to(this.target, { x: 0, duration: 0.3 });
-    },
-  })[0];
+const handleTouchEnd = () => {
+  setTimeout(() => {
+    isTouchDragging = false;
+  }, 0);
 };
 
 const handleResize = () => {
-  const wasDesktop = !isMobile.value;
   isMobile.value = window.innerWidth < 640;
-  const isNowDesktop = !isMobile.value;
-
-  // If transitioning to mobile, initialize draggable
-  if (wasDesktop && !isNowDesktop && carouselContainerRef.value) {
-    initializeDraggable();
-  }
-  // If transitioning to desktop, kill draggable
-  else if (!wasDesktop && isNowDesktop && draggable) {
-    Draggable.get(carouselContainerRef.value)?.kill();
-    draggable = null;
-  }
 };
 
+watch(
+  () => props.handCards.length,
+  () => {
+    current.value = Math.min(current.value, maxIndex.value);
+  },
+);
+
 onMounted(() => {
-  useGSAP().to("carousel-container", {
-    props,
-  });
   current.value = Math.floor(maxIndex.value / 2);
   isMobile.value = window.innerWidth < 640;
-
-  // Only initialize draggable on mobile
-  if (isMobile.value) {
-    nextTick(() => {
-      initializeDraggable();
-    });
-  }
 
   window.addEventListener("resize", handleResize);
 });
 
 onUnmounted(() => {
   window.removeEventListener("resize", handleResize);
-  if (draggable) {
-    Draggable.get(carouselContainerRef.value)?.kill();
-    draggable = null;
-  }
 });
 </script>
+
 <style scoped>
 .carousel-wrap {
   width: 100%;
@@ -247,24 +232,3 @@ onUnmounted(() => {
   pointer-events: none;
 }
 </style>
-
-<!-- 
-alphabetisch
- farblich
- genre
- combiniert (bsp genre und innerhalb alphabetisch)
- nach grösse
- nach dicke
- herausgebedatum
- nach autorInnen
- rückwärts alphabetisch
- nach sprachen
-geburtsdatum autorInnen
-nach bewertung (online ratings)
-nach beliebtheit (du selbst)
-nach jugendfrei oder nicht
-nach anz bilder
-nach gelesen oder nicht
-woher es ist (tante hat es gekauft oder bekommen von wem etc)
-
-  -->

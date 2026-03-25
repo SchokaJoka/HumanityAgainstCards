@@ -15,66 +15,18 @@ export function useGameManager() {
 
   const { getCardCollections } = useCards();
 
-  async function setGameMasterIfNotExists(roomId: string, playerId: string) {
-    console.log(
-      `[GameMaster] Starting setGameMasterIfNotExists for player: ${playerId}`,
-    );
-
-    const { data: room } = await supabase
+  async function setGameMasterIfNotExists(roomId: string) {
+    // Just read - no writing from client
+    const { data } = await supabase
       .from("rooms")
       .select("metadata")
       .eq("id", roomId)
       .maybeSingle();
 
-    const metadata = room?.metadata || {};
-    console.log(`[GameMaster] Initial metadata read:`, metadata);
-
-    if (!metadata.game_master_id) {
-      console.log(
-        `[GameMaster] No game_master_id found, setting to: ${playerId}`,
-      );
-
-      // CREATE A NEW OBJECT - don't mutate the original
-      const newMetadata = {
-        ...metadata,
-        game_master_id: playerId,
-      };
-
-      console.log(`[GameMaster] New metadata to send:`, newMetadata);
-
-      const { error } = await supabase
-        .from("rooms")
-        .update({ metadata: newMetadata }) // Use the NEW object
-        .eq("id", roomId);
-
-      if (error) {
-        console.error("Error setting game master:", error);
-        return null;
-      }
-
-      console.log(`[GameMaster] Update sent successfully, reading back...`);
-
-      // Add a small delay to allow propagation
-      await new Promise((resolve) => setTimeout(resolve, 150));
-
-      const { data: updatedRoom } = await supabase
-        .from("rooms")
-        .select("metadata")
-        .eq("id", roomId)
-        .maybeSingle();
-
-      const finalMasterId = updatedRoom?.metadata?.game_master_id;
-      console.log(
-        `[GameMaster] Final read - game_master_id: ${finalMasterId}, expected: ${playerId}`,
-      );
-
-      return finalMasterId ?? playerId;
-    } else {
-      console.log(
-        `[GameMaster] game_master_id already exists: ${metadata.game_master_id}`,
-      );
-      return metadata.game_master_id;
-    }
+    console.log(
+      `[GameMaster] Read game_master_id from DB: ${data?.metadata?.game_master_id}`,
+    );
+    return data?.metadata?.game_master_id ?? null;
   }
 
   async function getGameMasterId(roomId: string) {

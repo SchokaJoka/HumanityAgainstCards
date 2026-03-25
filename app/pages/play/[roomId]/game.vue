@@ -738,7 +738,7 @@ const dev2gaps = ref(false);
         "
         class="w-full flex-1"
       >
-        <MyCarousel2
+        <MyCarousel
           :hand-cards="playerHandCards"
           :collection-cards="availableCollectionCards"
           :selected-card-ids="selectedHandCardIds"

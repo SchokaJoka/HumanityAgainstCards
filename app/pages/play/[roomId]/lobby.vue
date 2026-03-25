@@ -412,29 +412,9 @@ onMounted(async () => {
     return;
   }
 
-  // Load room metadata only after roomId is known
-  const roomMetadata = await getRoomMetadata(roomId.value);
-  console.log("Fetched roomMetadata on mount:", roomMetadata);
-
-  gameMasterId.value = await setGameMasterIfNotExists(
-    roomId.value,
-    playerId.value,
-  );
-  console.log(
-    "After setGameMaster - gameMasterId.value:",
-    gameMasterId.value,
-    "playerId:",
-    playerId.value,
-    "Match:",
-    gameMasterId.value === playerId.value,
-  );
-
-  console.log(
-    "Before setGameMaster, roomId:",
-    roomId.value,
-    "playerId:",
-    playerId.value,
-  );
+  // Just read the game master ID, don't set it
+  gameMasterId.value = await setGameMasterIfNotExists(roomId.value);
+  console.log("Game master ID from DB:", gameMasterId.value);
 
   await insertPlayerInRoomTable(roomId.value, playerId.value);
 
@@ -456,6 +436,10 @@ onMounted(async () => {
     },
     (payload) => {
       console.log("[POSTGRES CHANGES] rooms updated: ", payload);
+      if (payload.new.metadata?.game_master_id) {
+        gameMasterId.value = payload.new.metadata.game_master_id;
+        console.log(`[POSTGRES CHANGES] Game master updated to: ${gameMasterId.value}`);
+      }
       handleGameStateChanges(payload.new.metadata);
     },
   );
@@ -487,6 +471,7 @@ onMounted(async () => {
   });
 
   // SYNC GAME STATE IF ALREADY STARTED
+  const roomMetadata = await getRoomMetadata(roomId.value);
   const metadata = roomMetadata?.metadata;
   if (metadata?.round_status && metadata.round_status !== "lobby") {
     const { data: handCardsData } = await supabase
@@ -561,8 +546,7 @@ const dev2gaps = ref(false);
   <main class="flex flex-col items-center min-h-screen scroll-x- pt-48">
     <!-- Lobby Info Section -->
     <section
-      class="z-10 shadow-xs shadow-white fixed top-0 left-0 pb-2 w-full bg-white pt-[env(safe-area-inset-top),1.5rem)]"
-    >
+      class="z-10 shadow-xs shadow-white fixed top-0 left-0 pb-2 w-full bg-white pt-[env(safe-area-inset-top),1.5rem)]">
       <div class="flex items-start justify-between h-fit p-4">
         <div class="">
           <h1 class="text-2xl font-bold">Room: {{ roomCode }}</h1>
@@ -573,10 +557,8 @@ const dev2gaps = ref(false);
           <p v-if="round" class="text-sm text-blue-500">{{ round }}. Round</p>
         </div>
         <div class="flex gap-2">
-          <button
-            @click="deletePlayerFromRoomTable(roomId, playerId)"
-            class="px-6 py-4 rounded-full text-gray-500 border border-gray-300 text-sm font-semibold rounded-xl hover:bg-gray-50"
-          >
+          <button @click="deletePlayerFromRoomTable(roomId, playerId)"
+            class="px-6 py-4 rounded-full text-gray-500 border border-gray-300 text-sm font-semibold rounded-xl hover:bg-gray-50">
             Leave
           </button>
         </div>
@@ -584,33 +566,21 @@ const dev2gaps = ref(false);
     </section>
     <!-- Player List -->
     <div class="flex flex-row px-4 overflow-x-auto gap-2">
-      <div
-        v-for="player in players"
-        :key="player.user_id"
+      <div v-for="player in players" :key="player.user_id"
         class="flex flex-col items-start justify-between gap-2 min-w-32 rounded-xl p-2 text-xs font-medium border transition-all"
-        :class="
-          czarId === player.user_id
-            ? 'border-yellow-100 bg-yellow-100 text-yellow-700'
-            : player.status === 'submitted'
-              ? 'border-green-50 bg-green-50 text-green-200'
-              : 'border-gray-50 bg-gray-50 text-gray-600'
-        "
-      >
-        <div
-          class="w-full flex flex-row items-center justify-start gap-1 transition"
-        >
+        :class="czarId === player.user_id
+          ? 'border-yellow-100 bg-yellow-100 text-yellow-700'
+          : player.status === 'submitted'
+            ? 'border-green-50 bg-green-50 text-green-200'
+            : 'border-gray-50 bg-gray-50 text-gray-600'
+          ">
+        <div class="w-full flex flex-row items-center justify-start gap-1 transition">
           <span class="text-md font-bold transition">{{
             player.user_name
           }}</span>
-          <span
-            v-if="player.user_id === playerId"
-            class="text-md font-normal transition"
-            >(you)</span
-          >
+          <span v-if="player.user_id === playerId" class="text-md font-normal transition">(you)</span>
         </div>
-        <div
-          class="w-full flex flex-row items-center justify-between gap-2 transition"
-        >
+        <div class="w-full flex flex-row items-center justify-between gap-2 transition">
           <span class="">{{ getPlayerScore(player.user_id) }}</span>
           <span class="text-[0.6rem] uppercase transition">{{
             player.status
@@ -619,36 +589,26 @@ const dev2gaps = ref(false);
       </div>
     </div>
     <!-- Waiting for game to start -->
-    <section
-      v-if="!isGameMaster && !gameStarted"
-      class="bg-white rounded w-full max-w-2xl p-12 flex flex-col items-center justify-center"
-    >
+    <section v-if="!isGameMaster && !gameStarted"
+      class="bg-white rounded w-full max-w-2xl p-12 flex flex-col items-center justify-center">
       <p class="text-blue-500">Waiting for the Game Master to start...</p>
     </section>
 
     <!-- Start Game Button -->
-    <section
-      v-if="!gameStarted && isGameMaster"
-      class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all"
-    >
-      <button
-        @click="startGame()"
-        :disabled="isStartingGame"
-        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
-      >
+    <section v-if="!gameStarted && isGameMaster"
+      class="fixed bottom-[max(env(safe-area-inset-top),1.5rem)] flex items-center transition-all">
+      <button @click="startGame()" :disabled="isStartingGame"
+        class="px-8 py-4 bg-blue-500 rounded-full text-white text-sm font-semibold rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70">
         {{ isStartingGame ? "Starting..." : "Start Game" }}
       </button>
     </section>
 
-    <p
-      v-if="
-        whiteCardPickError &&
-        !isCzar &&
-        roundStatus === 'round_start' &&
-        !isWhiteCardsSubmitted
-      "
-      class="text-red-500 text-sm mb-2"
-    >
+    <p v-if="
+      whiteCardPickError &&
+      !isCzar &&
+      roundStatus === 'round_start' &&
+      !isWhiteCardsSubmitted
+    " class="text-red-500 text-sm mb-2">
       {{ whiteCardPickError }}
     </p>
   </main>

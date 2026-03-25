@@ -77,23 +77,63 @@ export function useRoom() {
       return;
     }
   }
-
   async function deletePlayerFromRoomTable(roomId: string, playerId: string) {
     if (!roomId || !playerId) return;
 
-    const { error } = await supabase
-      .from("room_members")
-      .delete()
-      .eq("room_id", roomId)
-      .eq("user_id", playerId);
+    try {
+      // 1. Check if leaving player is the game master
+      const { data: room } = await supabase
+        .from("rooms")
+        .select("metadata")
+        .eq("id", roomId)
+        .single();
 
-    if (error) {
-      console.error("Error leaving room:", error);
-      return;
+      if (room?.metadata?.game_master_id === playerId) {
+        // 2. Find the next player in join order (oldest member)
+        const { data: nextPlayer } = await supabase
+          .from("room_members")
+          .select("user_id")
+          .eq("room_id", roomId)
+          .neq("user_id", playerId) // Exclude the leaving player
+          .order("joined_at", { ascending: true })
+          .limit(1)
+          .single();
+
+        // 3. If there's a next player, promote them to game master
+        if (nextPlayer) {
+          await supabase
+            .from("rooms")
+            .update({
+              metadata: {
+                ...(room.metadata ?? {}),
+                game_master_id: nextPlayer.user_id,
+              },
+            })
+            .eq("id", roomId);
+
+          console.log(
+            `[GameMaster] Promoted ${nextPlayer.user_id} to game master`,
+          );
+        }
+      }
+
+      // 4. Now delete the player
+      const { error } = await supabase
+        .from("room_members")
+        .delete()
+        .eq("room_id", roomId)
+        .eq("user_id", playerId);
+
+      if (error) {
+        console.error("Error leaving room:", error);
+        return;
+      }
+
+      isLeaving.value = true;
+      await navigateTo("/");
+    } catch (err) {
+      console.error("Error in deletePlayerFromRoomTable:", err);
     }
-
-    isLeaving.value = true;
-    await navigateTo("/");
   }
 
   async function markMemberInactive(roomId: string, playerId: string) {
