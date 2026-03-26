@@ -7,5 +7,11 @@ export default defineNuxtConfig({
     redirect: false,
     types: "~~/types/database.types.ts",
   },
+  app: {
+    pageTransition: {
+      name: "page-fade",
+      mode: "out-in",
+    },
+  },
   // css: ["~/assets/css/main.css"],
 });

@@ -9,4 +9,15 @@
 :global(body) {
   @apply bg-white;
 }
+
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+.page-fade-enter-from,
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(12px);
+}
 </style>
