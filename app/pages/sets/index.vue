@@ -1,5 +1,5 @@
 <template>
-    <main class="w-full flex items-center justify-center">
+    <main class="w-full flex items-center justify-center bg-neutral-300">
         <header ref="headerEl" class="fixed top-0 w-full flex flex-col items-start justify-start z-10">
             <div class="flex flex-row items-center w-full gap-4 p-4 bg-white">
                 <div class="cursor-pointer" @click="navigateTo('/')">
@@ -99,7 +99,7 @@
 
         <section class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] z-20">
             <div class="w-full max-w-2xl mx-auto">
-                <Button variant="secondary" size="lg" @click="navigateTo('/sets/create')">
+                <Button variant="secondary" size="md" @click="navigateTo('/sets/create')">
                     <template #iconLeft>
                         <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none">
                             <path d="M12 5V19" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -195,5 +195,9 @@ onBeforeUnmount(() => {
 .tab-fade-leave-to {
     opacity: 0;
     transform: translateY(8px);
+}
+
+body {
+    @apply bg-neutral-300;
 }
 </style>
