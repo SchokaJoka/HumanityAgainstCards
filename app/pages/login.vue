@@ -104,7 +104,7 @@
 const supabase = useSupabaseClient();
 const route = useRoute();
 const user = useSupabaseUser();
-const headerEl = ref<HTMLElement | null>(null);
+const { headerEl, updateHeaderHeight } = useHeaderHeight("--auth-header-h");
 
 // Login form
 const email = ref("");
@@ -129,11 +129,6 @@ const getRedirectPath = () => {
   } else {
     return "/";
   }
-};
-
-const updateHeaderHeight = () => {
-  const height = headerEl.value?.offsetHeight ?? 0;
-  document.documentElement.style.setProperty("--auth-header-h", `${height}px`);
 };
 
 const switchTab = (tab: 'login' | 'signup') => {
@@ -315,16 +310,9 @@ const handleAnonymousLogin = async () => {
 };
 
 onMounted(() => {
-  updateHeaderHeight();
-  window.addEventListener("resize", updateHeaderHeight);
-
   if (user.value?.is_anonymous && user.value?.user_metadata?.full_name) {
     guestUsername.value = user.value.user_metadata.full_name;
     signupUsername.value = user.value.user_metadata.full_name;
   }
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("resize", updateHeaderHeight);
 });
 </script>

@@ -172,7 +172,7 @@ const GAP_TOKEN: string = "[[W1tnYXBdXQ==]]";
 type Card = Tables<"cards">;
 
 const activeTab = ref("page1");
-const headerEl = ref<HTMLElement | null>(null);
+const { headerEl, updateHeaderHeight } = useHeaderHeight("--sets-header-h");
 
 const hasUnsavedChanges = computed(() =>
     whiteCards.value.length > 0 ||
@@ -230,11 +230,6 @@ const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
         e.preventDefault();
         e.returnValue = "You have unsaved changes. Are you sure you want to leave?";
     }
-};
-
-const updateHeaderHeight = () => {
-    const height = headerEl.value?.offsetHeight ?? 0;
-    document.documentElement.style.setProperty("--sets-header-h", `${height}px`);
 };
 
 function leavePage() {
@@ -355,8 +350,6 @@ function newBlackCard() {
 
 
 onMounted(async () => {
-    updateHeaderHeight();
-    window.addEventListener("resize", updateHeaderHeight);
     window.addEventListener("beforeunload", beforeUnloadHandler);
 
     console.log("Current user:", user.value);
@@ -364,7 +357,6 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-    window.removeEventListener("resize", updateHeaderHeight);
     window.removeEventListener("beforeunload", beforeUnloadHandler);
 });
 </script>

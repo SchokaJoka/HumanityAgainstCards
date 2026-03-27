@@ -298,6 +298,24 @@ export function useRoom() {
     );
   }
 
+  async function leaveRoomRealtime() {
+    if (gameChannel.value) {
+      const channel = gameChannel.value;
+      // Clear state immediately to avoid re-entry
+      gameChannel.value = null;
+
+      try {
+        console.log("[useRoom] Unsubscribing and removing channel...");
+        await channel.unsubscribe();
+        await supabase.removeChannel(channel);
+      } catch (error) {
+        console.error("[useRoom] Error during channel cleanup:", error);
+      }
+    }
+    // Thorough cleanup as requested
+    await supabase.removeAllChannels();
+  }
+
   return {
     // Variables
     isLeaving,
@@ -316,5 +334,6 @@ export function useRoom() {
     markMemberInactive,
     trackMyStatus,
     setupBroadcastListeners,
+    leaveRoomRealtime,
   };
 }

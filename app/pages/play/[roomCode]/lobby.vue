@@ -36,6 +36,7 @@ const {
   markMemberInactive,
   trackMyStatus,
   setupBroadcastListeners,
+  leaveRoomRealtime,
 } = useRoom();
 
 const {
@@ -111,17 +112,21 @@ onMounted(async () => {
   });
 });
 
+onBeforeRouteLeave((to) => {
+  // If moving within the same room flow, preserve the channel
+  if (to.params.roomCode === route.params.roomCode) {
+    isJoiningGame.value = true;
+  }
+});
+
 onUnmounted(async () => {
   if (!isLeaving.value && roomId.value) await markMemberInactive(roomId.value, playerId.value);
 
   if (isJoiningGame.value) {
     console.log("[Lobby] Unmounted while joining game, skipping cleanup");
-    return;
   } else {
     console.log("[Lobby] Unmounted, performing cleanup");
-    gameChannel.value?.unsubscribe();
-    supabase.removeAllChannels();
-    gameChannel.value = null;
+    await leaveRoomRealtime();
   }
 });
 // ============================================================
@@ -214,7 +219,7 @@ const dev2gaps = ref(false);
     <!-- Footer -->
     <!-- Player List, Room Info -->
     <main
-      class="fixed bottom-[max(env(safe-area-inset-top),1rem)] flex flex-col items-center justify-between min-h-lg w-full max-w-2xl px-8 pb-8 pt-4 gap-4">
+      class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] flex flex-col items-center justify-between min-h-lg w-full max-w-2xl px-8 pb-8 pt-4 gap-4">
 
       <div v-if="errorMessage" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
         {{ errorMessage }}

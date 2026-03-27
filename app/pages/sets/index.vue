@@ -131,18 +131,9 @@ const placeholderRows = [1, 2, 3];
 type CardCollections = Tables<"collections">;
 
 const activeTab = ref("page1");
-const headerEl = ref<HTMLElement | null>(null);
-
-const updateHeaderHeight = () => {
-    const height = headerEl.value?.offsetHeight ?? 0;
-    document.documentElement.style.setProperty("--sets-header-h", `${height}px`);
-};
-
+const { headerEl, updateHeaderHeight } = useHeaderHeight("--sets-header-h");
 
 onMounted(async () => {
-    updateHeaderHeight();
-    window.addEventListener("resize", updateHeaderHeight);
-
     console.log("Current user:", user.value);
     const userId = user.value?.id ?? user.value?.sub;
 
@@ -181,9 +172,5 @@ onMounted(async () => {
     } finally {
         isLoading.value = false;
     }
-});
-
-onBeforeUnmount(() => {
-    window.removeEventListener("resize", updateHeaderHeight);
 });
 </script>
