@@ -1,25 +1,6 @@
 <script setup lang="ts">
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
-type WinnerInfo = {
-  user_id: string;
-  metadata?: { submitted_cards?: string[] } | null;
-};
-
-type BlackCard = {
-  text: string;
-  number_of_gaps: number | null;
-};
-
-type GameMetadata = {
-  round_status: "lobby" | "round_start" | "round_submitted" | "round_end";
-  round?: number | null;
-  czar_id?: string | null;
-  set_id?: string | null;
-  black_card?: BlackCard | null;
-  current_winner?: WinnerInfo | null;
-};
-
 // VARIABLES
 // ============================================================
 const user = useSupabaseUser();
@@ -36,10 +17,10 @@ const gameChannel = useState<RealtimeChannel | null>("gameChannel", () => null);
 const gameMasterId = ref<string | null>(null);
 const isGameMaster = useState<boolean>("isGameMaster", () => false);
 
-const gameState = ref<GameMetadata | null>(null);
-const roundStatus = ref<GameMetadata["round_status"]>("lobby");
+const gameState = ref<any>(null);
+const roundStatus = ref<string>("lobby");
 
-const blackCard = ref<BlackCard | null>(null);
+const blackCard = ref<any>(null);
 const myChosenWhiteCards = ref<any[]>([]);
 const playerSubmissions = ref<any[]>([]);
 const selectedPlayerSubmission = ref<any | null>(null);
@@ -200,7 +181,7 @@ const round = computed(() => {
 
 // Game State Handling
 // ============================================================
-async function handleRoundStart(currentMetaData: GameMetadata) {
+async function handleRoundStart(currentMetaData: any) {
   gameState.value = currentMetaData;
   roundStatus.value = currentMetaData.round_status;
   winnerUserId.value = null;
@@ -252,7 +233,7 @@ async function handleRoundStart(currentMetaData: GameMetadata) {
   blackCard.value = currentMetaData.black_card ?? null;
 }
 
-async function handleRoundSubmitted(currentMetaData: GameMetadata) {
+async function handleRoundSubmitted(currentMetaData: any) {
   gameState.value = currentMetaData;
   roundStatus.value = currentMetaData.round_status;
   winnerUserId.value = null;
@@ -288,7 +269,7 @@ async function handleRoundSubmitted(currentMetaData: GameMetadata) {
   console.log("submittedWhiteCards: ", playerSubmissions.value);
 }
 
-async function handleRoundEnd(currentMetaData: GameMetadata) {
+async function handleRoundEnd(currentMetaData: any) {
   const winnerId = currentMetaData.current_winner?.user_id;
   if (!winnerId) return;
   winnerUserId.value = winnerId;
@@ -299,7 +280,7 @@ async function handleRoundEnd(currentMetaData: GameMetadata) {
     currentMetaData.current_winner?.metadata?.submitted_cards ?? [];
 }
 
-async function handleGameStateChanges(currentMetaData: GameMetadata) {
+async function handleGameStateChanges(currentMetaData: any) {
   gameState.value = currentMetaData;
   roundStatus.value = currentMetaData.round_status;
 
@@ -393,6 +374,8 @@ async function submitCards() {
         whiteCardPickError.value = "";
 
         isWhiteCardsSubmitted.value = true;
+        
+        
 
         console.log("[EDGE] success submit_white_cards", data);
       }
@@ -503,13 +486,13 @@ onMounted(async () => {
         gameMasterId.value = payload.new.owner;
       }
 
-      const metadata = payload.new.metadata as GameMetadata | null;
+      const metadata = payload.new.metadata as any;
       if (metadata) handleGameStateChanges(metadata);
     },
   );
 
   // STEP 2: Conditionally load game state if game already started
-  const metadata = (roomMetadata?.metadata as GameMetadata | null) ?? null;
+  const metadata = (roomMetadata?.metadata as any) ?? null;
   if (metadata && metadata.round_status !== "lobby") {
     const { data: handCardsData } = await supabase
       .from("hand_cards")
@@ -618,14 +601,14 @@ const dev2gaps = ref(false);
           <div class="w-full flex flex-row items-center justify-start gap-1 transition">
             <span class="text-md font-bold transition">{{
               player.user_name
-            }}</span>
+              }}</span>
             <span v-if="player.user_id === playerId" class="text-md font-normal transition">(you)</span>
           </div>
           <div class="w-full flex flex-row items-center justify-between gap-2 transition">
             <span class="">{{ getPlayerScore(player.user_id) }}</span>
             <span class="text-[0.6rem] uppercase transition">{{
               player.status
-            }}</span>
+              }}</span>
           </div>
         </div>
       </div>
