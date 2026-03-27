@@ -101,7 +101,7 @@ onMounted(async () => {
   gameMasterId.value = room?.owner ?? null;
   console.log("Game master ID from DB:", gameMasterId.value);
 
-  await enterRoom(roomId.value, roomCode.value, playerId.value, "waiting");
+  await enterRoom(roomId.value, roomCode.value, playerId.value, null);
 
   // Listen for navigate_to_game broadcast to transition to game.vue
   gameChannel.value?.on("broadcast", { event: "navigate_to_game" }, (payload: any) => {

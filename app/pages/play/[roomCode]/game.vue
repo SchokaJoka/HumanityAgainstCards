@@ -136,18 +136,6 @@ const selectedHandCardIds = computed(() =>
   myChosenWhiteCards.value.map((c: any) => c.id),
 );
 
-const availableCollectionCards = computed(() => {
-  if (Array.isArray(collectionCards.value)) return collectionCards.value;
-  return [];
-});
-
-const normalizedHandCards = computed(() =>
-  (playerHandCards.value ?? []).map((h: any) => ({
-    ...h,
-    card_id: h.card_id ?? "",
-  })),
-);
-
 type TextPart = {
   text: string;
   isGap: boolean;
@@ -155,7 +143,7 @@ type TextPart = {
 };
 
 const getCardTextById = (cardId: string) => {
-  const card = availableCollectionCards.value.find((c: any) => c.id === cardId);
+  const card = collectionCards.value.find((c: any) => c.id === cardId);
   return card?.text || "Unknown card";
 };
 
@@ -485,7 +473,7 @@ const getWhiteCardTextAtGap = (gapIndex?: number) => {
   const chosenCardId = chosenCard.card_id ?? chosenCard.id;
   if (!chosenCardId) return null;
 
-  const cardText = availableCollectionCards.value.find(
+  const cardText = collectionCards.value.find(
     (c: any) => c.id === chosenCardId,
   )?.text;
 
@@ -540,14 +528,14 @@ const dev2gaps = ref(false);
           <div class="w-full flex flex-row items-center justify-start gap-1 transition">
             <span class="text-md font-bold transition">{{
               player.user_name
-              }}</span>
+            }}</span>
             <span v-if="player.user_id === playerId" class="text-md font-normal transition">(you)</span>
           </div>
           <div class="w-full flex flex-row items-center justify-between gap-2 transition">
             <span class="">{{ getPlayerScore(player.user_id) }}</span>
             <span class="text-[0.6rem] uppercase transition">{{
               player.status
-              }}</span>
+            }}</span>
           </div>
         </div>
       </div>
@@ -658,7 +646,7 @@ const dev2gaps = ref(false);
         roundStatus === 'round_start' &&
         isWhiteCardsSubmitted === false
       " class="w-full flex-1">
-        <MyCarousel :hand-cards="normalizedHandCards" :collection-cards="availableCollectionCards"
+        <MyCarousel :hand-cards="playerHandCards" :collection-cards="collectionCards"
           :selected-card-ids="selectedHandCardIds" @select-card="pickCard" />
       </div>
     </section>

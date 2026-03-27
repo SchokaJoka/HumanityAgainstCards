@@ -12,24 +12,15 @@
 </template>
 
 <script setup lang="ts">
-type HandCard = {
-  id: string | number;
-  card_id: string;
-};
-
-type CollectionCard = {
-  id: string;
-  text: string;
-};
 
 const props = defineProps<{
-  handCards: HandCard[];
-  collectionCards: CollectionCard[];
-  selectedCardIds?: Array<string | number>;
+  handCards: [];
+  collectionCards: [];
+  selectedCardIds?: Array<string>;
 }>();
 
 const emit = defineEmits<{
-  (event: "select-card", card: HandCard): void;
+  (event: "select-card", card): void;
 }>();
 
 const carouselContainerRef = ref<HTMLDivElement | null>(null);
@@ -55,10 +46,10 @@ const cardTextById = computed(() => {
 const getCardText = (cardId: string) =>
   cardTextById.value.get(cardId) ?? "Loading...";
 
-const isSelected = (card: HandCard) =>
+const isSelected = (card) =>
   !!props.selectedCardIds?.some((id) => String(id) === String(card.id));
 
-const emitSelect = (card: HandCard) => {
+const emitSelect = (card) => {
   if (isTouchDragging) {
     isTouchDragging = false;
     return;

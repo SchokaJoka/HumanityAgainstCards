@@ -163,7 +163,7 @@ export function useRoom() {
     roomId: string,
     roomCode: string,
     playerId: string,
-    initialStatus: string,
+    initialStatus: string | null,
   ) {
     await joinRoom(roomCode, playerId);
     await insertPlayerInRoomTable(roomId, playerId);
