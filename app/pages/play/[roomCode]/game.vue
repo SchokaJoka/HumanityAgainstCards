@@ -592,14 +592,14 @@ const dev2gaps = ref(false);
 
         <!-- Player Hand -->
         <div v-if="!isCzar && roundStatus === 'round_start' && isWhiteCardsSubmitted === false"
-          class="w-full h-full overflow-y-clip">
+          class="w-full h-full overflow-y-clip z-10">
           <MyCarousel :items="playerHandCards" :lookup-cards="collectionCards" :selected-ids="selectedHandCardIds"
             @select-item="pickCard">
           </MyCarousel>
         </div>
 
         <!-- Judging Area -->
-        <div v-if="roundStatus === 'round_submitted'" class="w-full h-full overflow-y-clip">
+        <div v-if="roundStatus === 'round_submitted'" class="w-full h-full overflow-y-visible z-10">
           <MyCarousel :items="judgingCards" :lookup-cards="collectionCards" :selected-ids="selectedJudgingCardIds"
             selected-class="selected-judging" @select-item="pickWinner">
           </MyCarousel>
@@ -625,7 +625,7 @@ const dev2gaps = ref(false);
 
     <!-- Action Buttons -->
     <section name="action-buttons" v-if="gameStarted"
-      class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] w-full flex flex-row items-center justify-center transition-all">
+      class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] w-full flex flex-row items-center justify-center transition-all z-40">
       <transition name="fade" mode="out-in">
         <Button v-if="roundStatus === 'round_start' && !isCzar && !isWhiteCardsSubmitted" @click="submitCards()"
           :disabled="isSubmittingWhiteCards || myChosenWhiteCards.length !== numberOfCardsToPlay" variant="primary"
