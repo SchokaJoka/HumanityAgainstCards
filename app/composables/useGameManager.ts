@@ -16,9 +16,11 @@ export function useGameManager() {
   const winnerCards = useState<any[]>("winnerCards", () => []);
   const playerSubmissions = useState<any[]>("playerSubmissions", () => []);
   const blackCard = useState<any | null>("blackCard", () => null);
-  const isWhiteCardsSubmitted = useState<boolean>("isWhiteCardsSubmitted", () => false);
+  const isWhiteCardsSubmitted = useState<boolean>(
+    "isWhiteCardsSubmitted",
+    () => false,
+  );
   const myChosenWhiteCards = useState<any[]>("myChosenWhiteCards", () => []);
-
 
   const isStartingGame = ref(false);
   const isStartingNextRound = ref(false);
@@ -47,6 +49,7 @@ export function useGameManager() {
     roomCode: string,
     dev2gaps: boolean,
     collectionId: string,
+    mode: "classic" | "extended",
   ) {
     console.log("[GameManager] initializeGame called with:", {
       roomId,
@@ -70,7 +73,7 @@ export function useGameManager() {
     gameChannel.value.send({
       type: "broadcast",
       event: "navigate_to_game",
-      payload: { roomCode },
+      payload: { roomCode, mode },
     });
 
     console.log("[GameManager] Broadcasting game_initialize");
@@ -113,6 +116,83 @@ export function useGameManager() {
       event: "cards_dealt",
       payload: { roomId },
     });
+
+    isStartingGame.value = false;
+  }
+
+  async function initializeCreativeGame(roomId: string, roomCode: string) {
+    if (!gameChannel.value || players.value.length < 2 || !isGameMaster.value) {
+      if (players.value.length < 2) {
+        errorMessage.value =
+          "At least 2 players are required to start the game.";
+      }
+      return;
+    }
+
+    if (isStartingGame.value) return;
+    isStartingGame.value = true;
+
+    gameChannel.value.send({
+      type: "broadcast",
+      event: "navigate_to_game",
+      payload: { roomCode, mode: "creative" },
+    });
+
+    gameChannel.value.send({
+      type: "broadcast",
+      event: "game_start",
+    });
+
+    let czarId = players.value[0]?.user_id;
+    if (!czarId) {
+      const { data: members } = await supabase
+        .from("room_members")
+        .select("user_id")
+        .eq("room_id", roomId)
+        .order("joined_at", { ascending: true });
+      czarId = members?.[0]?.user_id ?? null;
+    }
+
+    if (!czarId) {
+      console.error("[GameManager] Failed to determine czar for creative mode");
+      isStartingGame.value = false;
+      return;
+    }
+
+    const { data: room, error: roomErr } = await supabase
+      .from("rooms")
+      .select("metadata")
+      .eq("id", roomId)
+      .single();
+
+    if (roomErr) {
+      console.error("[GameManager] Failed to load room metadata", roomErr);
+      isStartingGame.value = false;
+      return;
+    }
+
+    const nextMetadata = {
+      ...(room?.metadata ?? {}),
+      mode: "creative",
+      set_id: null,
+      handSize: 1,
+      round: 1,
+      round_status: "round_start",
+      czar_id: czarId,
+      black_card: null,
+      current_winner: null,
+      played_black_cards: room?.metadata?.played_black_cards ?? [],
+      played_white_cards: room?.metadata?.played_white_cards ?? [],
+    };
+
+    const { error: updateErr } = await supabase
+      .from("rooms")
+      .update({ metadata: nextMetadata })
+      .eq("id", roomId);
+
+    if (updateErr) {
+      console.error("[GameManager] Failed to init creative game", updateErr);
+    }
 
     isStartingGame.value = false;
   }
@@ -196,7 +276,7 @@ export function useGameManager() {
     }
 
     isWhiteCardsSubmitted.value = data?.[0]?.status === "submitted";
-    
+
     blackCard.value = currentMetaData.black_card ?? null;
   }
 
@@ -266,6 +346,7 @@ export function useGameManager() {
 
     // Functions
     initializeGame,
+    initializeCreativeGame,
     initializeNextRound,
     /* getGameMasterId, */
     handleGameStateChanges,

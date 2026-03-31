@@ -149,13 +149,18 @@ export function useRoom() {
 
   async function trackMyStatus(myPresenceStatus: string) {
     if (!gameChannel.value || !user.value || !user.value.sub) return;
+    if (gameChannel.value.state !== "joined") return;
 
-    await gameChannel.value.track({
-      user_id: user.value.sub,
-      user_name: user.value.user_metadata?.full_name,
-      status: myPresenceStatus,
-      joined_at: presenceJoinedAt,
-    });
+    try {
+      await gameChannel.value.track({
+        user_id: user.value.sub,
+        user_name: user.value.user_metadata?.full_name,
+        status: myPresenceStatus,
+        joined_at: presenceJoinedAt,
+      });
+    } catch (error) {
+      console.warn("[useRoom] Failed to track presence", error);
+    }
   }
 
   async function resetPlayerList() {
@@ -275,6 +280,24 @@ export function useRoom() {
     gameChannel.value.on("broadcast", { event: "game_start" }, () => {
       console.log("[BROADCAST] game_start");
       gameStarted.value = true;
+    });
+
+    // round_submitted (fallback refresh)
+    gameChannel.value.on("broadcast", { event: "round_submitted" }, async (body) => {
+      const targetRoomId = body?.payload?.roomId ?? roomId;
+      console.log("[BROADCAST] round_submitted", targetRoomId);
+      const { data: roomData, error } = await supabase
+        .from("rooms")
+        .select("metadata")
+        .eq("id", targetRoomId)
+        .single();
+
+      if (error) {
+        console.error("Error fetching room metadata:", error);
+        return;
+      }
+
+      if (roomData?.metadata) handleGameStateChanges(roomData.metadata);
     });
 
     // Realtime table listeners (after channel is created)

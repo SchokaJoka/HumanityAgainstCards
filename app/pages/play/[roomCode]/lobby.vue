@@ -47,6 +47,7 @@ const {
   errorMessage,
   // Functions
   initializeGame,
+  initializeCreativeGame,
 } = useGameManager();
 
 const { getCardCollections } = useCards();
@@ -68,7 +69,22 @@ async function startGame() {
     console.log("[Lobby] startGame aborted - missing roomId or roomCode");
     return;
   }
-  await initializeGame(roomId.value, roomCode.value, dev2gaps.value, selectedCollectionId.value);
+  if (selectedGameMode.value === "creative") {
+    await initializeCreativeGame(roomId.value, roomCode.value);
+  } else {
+    if (!selectedCollectionId.value) {
+      errorMessage.value = "Please select a card set to start.";
+      console.log("[Lobby] startGame aborted - missing collectionId");
+      return;
+    }
+    await initializeGame(
+      roomId.value,
+      roomCode.value,
+      dev2gaps.value,
+      selectedCollectionId.value,
+      selectedGameMode.value === "extended" ? "extended" : "classic",
+    );
+  }
   navigateTo(`/play/${roomCode.value}/game/${selectedGameMode.value}`);
 }
 // ============================================================
@@ -114,10 +130,14 @@ onMounted(async () => {
   gameChannel.value?.on("broadcast", { event: "navigate_to_game" }, (payload: any) => {
     isJoiningGame.value = true;
     console.log("[BROADCAST] navigate_to_game:", payload);
-    navigateTo(`/play/${payload.payload.roomCode}/game`);
+    const mode = payload?.payload?.mode ?? "classic";
+    navigateTo(`/play/${payload.payload.roomCode}/game/${mode}`);
   });
 
   collections.value = await getCardCollections();
+  if (!selectedCollectionId.value && collections.value.length > 0) {
+    selectedCollectionId.value = collections.value[0].id;
+  }
 });
 
 onBeforeRouteLeave((to) => {
@@ -243,15 +263,14 @@ const selectedGameMode = ref<"classic" | "extended" | "creative">("classic");
       </div>
 
       <!-- Collection Selection -->
-       <div class="w-full flex flex-col gap-4">
-         <div v-for="collection in collections" 
-          :key="collection.id" 
-          class="w-full flex flex-col gap-2 p-4 bg-neutral-200 rounded-lg hover:cursor-pointer hover:bg-neutral-300" 
+      <div v-if="selectedGameMode !== 'creative'" class="w-full flex flex-col gap-4">
+        <div v-for="collection in collections" :key="collection.id"
+          class="w-full flex flex-col gap-2 p-4 bg-neutral-200 rounded-lg hover:cursor-pointer hover:bg-neutral-300"
           @click="() => { selectedCollectionId = collection.id }"
           :class="(collection.id === selectedCollectionId) ? 'border-4 border-blue-500' : ''">
-            <p>{{ collection.name }}</p>
-          </div>
-       </div>
+          <p>{{ collection.name }}</p>
+        </div>
+      </div>
     </main>
 
     <!-- Footer -->
