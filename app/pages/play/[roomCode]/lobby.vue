@@ -69,6 +69,7 @@ async function startGame() {
     return;
   }
   await initializeGame(roomId.value, roomCode.value, dev2gaps.value, selectedCollectionId.value);
+  navigateTo(`/play/${roomCode.value}/game/${selectedGameMode.value}`);
 }
 // ============================================================
 
@@ -157,6 +158,7 @@ async function copyRoomCode() {
 // DEV DEBUGGING
 // ============================================================
 const dev2gaps = ref(false);
+const selectedGameMode = ref<"classic" | "extended" | "creative">("classic");
 // ============================================================
 </script>
 
@@ -179,8 +181,14 @@ const dev2gaps = ref(false);
       <p class="text-black text-4xl font-normal">Create Game</p>
 
       <!-- Game Mode Selection -->
-      <div
-        class="w-full bg-neutral-200 rounded-lg text-black flex flex-row items-stretch justify-between p-5 hover:bg-neutral-300 cursor-pointer">
+      <div @click="isGameMaster && (selectedGameMode = 'classic')" :class="[
+        'w-full rounded-lg flex flex-row items-stretch justify-between p-5 transition-all',
+        selectedGameMode === 'classic'
+          ? 'bg-black text-white border-2 border-black'
+          : 'bg-neutral-200 text-black hover:bg-neutral-300',
+        !isGameMaster && 'cursor-not-allowed opacity-50',
+        isGameMaster && 'cursor-pointer'
+      ]">
         <div class="flex flex-col gap-1 w-full">
           <p class="text-3xl font-semibold">Classic</p>
           <p class="text-sm font-normal">The epic game just as you know it.</p>
@@ -189,12 +197,18 @@ const dev2gaps = ref(false);
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="23" viewBox="0 0 12 23" fill="none">
             <path fill-rule="evenodd" clip-rule="evenodd"
               d="M8.14441 11.2896L1.49204 4.63721L2.82233 3.30692L10.1398 10.6244C10.3162 10.8009 10.4153 11.0401 10.4153 11.2896C10.4153 11.539 10.3162 11.7783 10.1398 11.9547L2.82233 19.2722L1.49204 17.9419L8.14441 11.2896Z"
-              fill="black" />
+              :fill="selectedGameMode === 'classic' ? 'white' : 'black'" />
           </svg>
         </div>
       </div>
-      <div
-        class="w-full bg-neutral-200 rounded-lg text-black flex flex-row items-stretch justify-between p-5 hover:bg-neutral-300 cursor-pointer">
+      <div @click="isGameMaster && (selectedGameMode = 'extended')" :class="[
+        'w-full rounded-lg flex flex-row items-stretch justify-between p-5 transition-all',
+        selectedGameMode === 'extended'
+          ? 'bg-black text-white border-2 border-black'
+          : 'bg-neutral-200 text-black hover:bg-neutral-300',
+        !isGameMaster && 'cursor-not-allowed opacity-50',
+        isGameMaster && 'cursor-pointer'
+      ]">
         <div class="flex flex-col gap-1 w-full">
           <p class="text-3xl font-semibold">Extended</p>
           <p class="text-sm font-normal">Spice up your usual game with some jokers.</p>
@@ -203,12 +217,18 @@ const dev2gaps = ref(false);
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="23" viewBox="0 0 12 23" fill="none">
             <path fill-rule="evenodd" clip-rule="evenodd"
               d="M8.14441 11.2896L1.49204 4.63721L2.82233 3.30692L10.1398 10.6244C10.3162 10.8009 10.4153 11.0401 10.4153 11.2896C10.4153 11.539 10.3162 11.7783 10.1398 11.9547L2.82233 19.2722L1.49204 17.9419L8.14441 11.2896Z"
-              fill="black" />
+              :fill="selectedGameMode === 'extended' ? 'white' : 'black'" />
           </svg>
         </div>
       </div>
-      <div
-        class="w-full bg-neutral-200 rounded-lg text-black flex flex-row items-stretch justify-between p-5 hover:bg-neutral-300 cursor-pointer">
+      <div @click="isGameMaster && (selectedGameMode = 'creative')" :class="[
+        'w-full rounded-lg flex flex-row items-stretch justify-between p-5 transition-all',
+        selectedGameMode === 'creative'
+          ? 'bg-black text-white border-2 border-black'
+          : 'bg-neutral-200 text-black hover:bg-neutral-300',
+        !isGameMaster && 'cursor-not-allowed opacity-50',
+        isGameMaster && 'cursor-pointer'
+      ]">
         <div class="flex flex-col gap-1 w-full">
           <p class="text-3xl font-semibold">Creative Mode</p>
           <p class="text-sm font-normal">Write ALL your own cards. Yes, even the black ones.</p>
@@ -217,7 +237,7 @@ const dev2gaps = ref(false);
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="23" viewBox="0 0 12 23" fill="none">
             <path fill-rule="evenodd" clip-rule="evenodd"
               d="M8.14441 11.2896L1.49204 4.63721L2.82233 3.30692L10.1398 10.6244C10.3162 10.8009 10.4153 11.0401 10.4153 11.2896C10.4153 11.539 10.3162 11.7783 10.1398 11.9547L2.82233 19.2722L1.49204 17.9419L8.14441 11.2896Z"
-              fill="black" />
+              :fill="selectedGameMode === 'creative' ? 'white' : 'black'" />
           </svg>
         </div>
       </div>
