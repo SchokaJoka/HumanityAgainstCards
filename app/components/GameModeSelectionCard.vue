@@ -71,7 +71,7 @@ function handleCollectionSelect(collectionId: string) {
                     class="w-full flex flex-row items-center justify-start gap-3 px-4 py-1 rounded-full bg-white text-black transition-colors duration-250 ease-out"
                     :style="{ transitionDelay: `${index * 45}ms` }"
                     @click.stop="handleCollectionSelect(collection.id)">
-                    <div class="size-5 rounded border-2 flex items-center justify-center border-black transition-colors duration-250 ease-out" :class="collection.id === selectedCollectionId
+                    <div class="size-5 shrink-0 aspect-square rounded border-2 flex items-center justify-center border-black transition-colors duration-250 ease-out" :class="collection.id === selectedCollectionId
                             ? ''
                             : ''
                         ">
@@ -82,7 +82,7 @@ function handleCollectionSelect(collectionId: string) {
                                 stroke-linejoin="round" />
                         </svg>
                     </div>
-                    <p>{{ collection.name }}</p>
+                    <p class="flex-1 min-w-0 truncate">{{ collection.name }}</p>
                 </div>
                 </TransitionGroup>
             </div>
