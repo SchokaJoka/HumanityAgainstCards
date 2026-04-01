@@ -21,22 +21,22 @@ const gameModes: Array<{
   title: string;
   description: string;
 }> = [
-  {
-    value: "classic",
-    title: "Classic",
-    description: "The epic game just as you know it.",
-  },
-  {
-    value: "extended",
-    title: "Extended",
-    description: "Spice up your usual game with some jokers.",
-  },
-  {
-    value: "creative",
-    title: "Creative Mode",
-    description: "Write ALL your own cards. Yes, even the black ones.",
-  },
-];
+    {
+      value: "classic",
+      title: "Classic",
+      description: "The epic game just as you know it.",
+    },
+    {
+      value: "extended",
+      title: "Extended",
+      description: "Spice up your usual game with some jokers.",
+    },
+    {
+      value: "creative",
+      title: "Creative Mode",
+      description: "Write ALL your own cards. Yes, even the black ones.",
+    },
+  ];
 
 const players = useState<any[]>("players", () => []);
 const gameChannel = useState<RealtimeChannel | null>("gameChannel", () => null);
@@ -44,8 +44,8 @@ const gameChannel = useState<RealtimeChannel | null>("gameChannel", () => null);
 const collections = ref<any[]>([]);
 const selectedCollectionId = ref<string | null>(null);
 const selectedGameMode = useState<"classic" | "extended" | "creative">(
-    "selectedGameMode",
-    () => "classic",
+  "selectedGameMode",
+  () => "classic",
 );
 
 // ============================================================
@@ -208,10 +208,29 @@ async function copyRoomCode() {
     .writeText(roomCode.value)
     .then(() => {
       isRoomCodeCopied.value = true;
+      setTimeout(() => {
+        isRoomCodeCopied.value = false;
+      }, 2000);
     })
     .catch((err) => {
       console.error("Failed to copy room code: ", err);
     });
+}
+
+async function shareRoomCode() {
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: "Join my game room on Cards Against Humanity Online!",
+        text: `Join my game room on Cards Against Humanity Online! Use the code: ${roomCode.value}`,
+        url: window.location.href,
+      });
+    } catch (error) {
+      console.error("Error sharing room code:", error);
+    }
+  } else {
+    copyRoomCode();
+  }
 }
 
 // ============================================================
@@ -242,24 +261,15 @@ const dev2gaps = ref(false);
     </header>
 
     <!-- Main Content -->
-    <main class="relative flex flex-col items-center justify-start min-h-[calc(1.5*100svh)] w-full max-w-2xl px-8 pb-8 pt-4 gap-4">
+    <main
+      class="relative flex flex-col items-center justify-start min-h-[calc(1.5*100svh)] w-full max-w-2xl px-8 pb-8 pt-4 gap-4">
       <div class="h-[33px] w-full mb-4"></div>
       <!-- Game Mode Selection -->
       <div class="flex flex-col gap-2 w-full">
-        <GameModeSelectionCard
-          v-for="mode in gameModes"
-          :key="mode.value"
-          :mode="mode.value"
-          :title="mode.title"
-          :description="mode.description"
-          :selected-mode="selectedGameMode"
-          :can-select="isGameMaster"
-          :collections="collections"
-          :selected-collection-id="selectedCollectionId"
-          @select="setLobbySettings"
-          @select-collection="setSelectedCollection"
-          :show-arrow-icon="mode.value !== 'creative'"
-        />
+        <GameModeSelectionCard v-for="mode in gameModes" :key="mode.value" :mode="mode.value" :title="mode.title"
+          :description="mode.description" :selected-mode="selectedGameMode" :can-select="isGameMaster"
+          :collections="collections" :selected-collection-id="selectedCollectionId" @select="setLobbySettings"
+          @select-collection="setSelectedCollection" :show-arrow-icon="mode.value !== 'creative'" />
       </div>
     </main>
 
@@ -276,15 +286,15 @@ const dev2gaps = ref(false);
         <div v-for="player in players" :key="player.user_id"
           class="flex flex-col gap-2 items-center transition-all border-black text-black">
           <div class="flex items-center justify-center size-12 rounded-full border-2 bg-white transition-all" :class="gameMasterId === player.user_id
-              ? 'border-black'
-              : 'border-black'
-              ">
-              <img src="https://placehold.co/40" alt="Player avatar" class="size-10 rounded-full object-cover" />
+            ? 'border-black'
+            : 'border-black'
+            ">
+            <img src="https://placehold.co/40" alt="Player avatar" class="size-10 rounded-full object-cover" />
 
-            </div>
-            <span class="text-xs font-semibold transition">
-              {{ player.user_id === playerId ? 'You' : player.user_name }}
-            </span>
+          </div>
+          <span class="text-xs font-semibold transition">
+            {{ player.user_id === playerId ? 'You' : player.user_name }}
+          </span>
         </div>
       </section>
 
@@ -293,21 +303,39 @@ const dev2gaps = ref(false);
         <div class="flex flex-col gap-2 w-full">
           <div
             class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-neutral-50 rounded-lg border-[3px] border-black">
-            <div class="w-full flex flex-row items-center justify-between cursor-pointer hover:text-red-500">
-              <div class="w-full py-4 px-4 text-xl font-normal">
+            <div class="w-full flex flex-row items-center justify-between cursor-pointer">
+              <div class="w-full py-4 px-4 text-xl font-normal" @click="copyRoomCode()">
                 {{ roomCode.trim().toUpperCase() }}
               </div>
-              <div @click="copyRoomCode()" class="flex items-center px-4 h-full bg-neutral-200 h-full">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none">
-                  <path d="M18.4903 3.46692H4.62256V18.4903" stroke="black" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round" />
-                  <path
-                    d="M9.24512 8.08948H23.1128V21.9572C23.1128 22.5702 22.8693 23.1581 22.4359 23.5915C22.0024 24.025 21.4145 24.2685 20.8015 24.2685H11.5564C10.9434 24.2685 10.3555 24.025 9.92208 23.5915C9.48863 23.1581 9.24512 22.5702 9.24512 21.9572V8.08948Z"
-                    stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
+
+              <div class="flex flex-row items-center h-full">
+                <div @click="copyRoomCode()" class="flex items-center px-4 h-full bg-white-200 h-full">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <path d="M18.4903 3.46692H4.62256V18.4903" stroke="black" stroke-width="2" stroke-linecap="round"
+                      stroke-linejoin="round" />
+                    <path
+                      d="M9.24512 8.08948H23.1128V21.9572C23.1128 22.5702 22.8693 23.1581 22.4359 23.5915C22.0024 24.025 21.4145 24.2685 20.8015 24.2685H11.5564C10.9434 24.2685 10.3555 24.025 9.92208 23.5915C9.48863 23.1581 9.24512 22.5702 9.24512 21.9572V8.08948Z"
+                      stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </div>
+                <div @click="shareRoomCode()" class="flex items-center px-4 h-full bg-neutral-200 h-full">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <path
+                      d="M15.0234 6.93387L17.3347 4.62259C18.4903 3.46695 20.8016 3.46695 21.9572 4.62259L23.1129 5.77823C24.2685 6.93387 24.2685 9.24516 23.1129 10.4008L17.3347 16.179C16.179 17.3347 13.8677 17.3347 12.7121 16.179M12.7121 20.8016L10.4008 23.1129C9.24516 24.2685 6.93387 24.2685 5.77823 23.1129L4.62259 21.9572C3.46695 20.8016 3.46695 18.4903 4.62259 17.3347L10.4008 11.5564C11.5564 10.4008 13.8677 10.4008 15.0234 11.5564"
+                      stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </div>
+
               </div>
             </div>
           </div>
+          <!-- Copy Flyout -->
+          <Transition name="fade-slide">
+            <div v-if="isRoomCodeCopied"
+              class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-black text-white px-6 py-4 rounded-lg text-sm font-medium whitespace-nowrap">
+              Copied to clipboard!
+            </div>
+          </Transition>
         </div>
         <Button v-if="isGameMaster" @click="startGame()" variant="primary" size="md" class="rounded-xl">Start</Button>
       </section>
@@ -315,3 +343,26 @@ const dev2gaps = ref(false);
 
   </main>
 </template>
+
+<style scoped>
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translate(-50%, 10px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 10px);
+}
+
+.fade-slide-enter-to,
+.fade-slide-leave-from {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+</style>
