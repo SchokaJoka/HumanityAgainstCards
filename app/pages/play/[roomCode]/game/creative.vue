@@ -65,6 +65,7 @@ const {
     gameManagerPlayerId,
 
     // Functions
+    initializeNextRound,
     handleGameStateChanges,
 } = useGameManager();
 
@@ -118,6 +119,10 @@ const blackCardTextParts = computed(() => {
     return getTextParts(text);
 });
 
+watch([playerId, gameMasterId], ([nextPlayerId, nextGameMasterId]) => {
+    isGameMaster.value = !!nextPlayerId && nextGameMasterId === nextPlayerId;
+});
+
 const myPresenceStatus = computed(() => {
     if (!gameStarted.value || roundStatus.value === "lobby") {
         return "waiting";
@@ -159,27 +164,30 @@ watch(
 );
 
 const judgingCarouselItems = computed(() => {
-    return playerSubmissions.value.map((submission: any) => {
+    return playerSubmissions.value.flatMap((submission: any) => {
         const texts = (submission.metadata?.submitted_cards ?? []) as string[];
-        return {
-            id: submission.user_id,
-            card_id: `creative-${submission.user_id}`,
+        return texts.map((text, index) => ({
+            id: `${submission.user_id}-${index}`,
+            card_id: `creative-${submission.user_id}-${index}`,
             submission,
-            texts,
-        };
+            text,
+        }));
     });
 });
 
 const judgingLookupCards = computed(() => {
     return judgingCarouselItems.value.map((item) => ({
         id: item.card_id,
-        text: item.texts.join(" / "),
+        text: item.text,
     }));
 });
 
 const selectedJudgingCardIds = computed(() => {
     if (!selectedPlayerSubmission.value?.user_id) return [];
-    return [`creative-${selectedPlayerSubmission.value.user_id}`];
+    const selectedId = String(selectedPlayerSubmission.value.user_id);
+    return judgingCarouselItems.value
+        .filter((item) => String(item.submission.user_id) === selectedId)
+        .map((item) => item.id);
 });
 // ============================================================
 
@@ -222,34 +230,24 @@ async function submitBlackCard() {
         is_black: true,
     };
 
-    const { data: room, error: roomErr } = await supabase
-        .from("rooms")
-        .select("metadata")
-        .eq("id", roomId.value)
-        .single();
+    const { data, error } = await supabase.functions.invoke(
+        "submit_black_card",
+        {
+            method: "POST",
+            body: {
+                room_id: roomId.value,
+                czar_id: playerId.value,
+                card: cardPayload,
+            },
+        },
+    );
 
-    if (roomErr) {
-        console.error("Error loading room metadata:", roomErr);
+    if (error) {
+        console.error("Error saving black card:", error);
         return;
     }
 
-    const playedBlack = (room?.metadata?.played_black_cards ?? []) as any[];
-    const updatedMetadata = {
-        ...(room?.metadata ?? {}),
-        black_card: cardPayload,
-        round_status: "round_start",
-        played_black_cards: [...playedBlack, cardPayload],
-    };
-
-    const { error: updateErr } = await supabase
-        .from("rooms")
-        .update({ metadata: updatedMetadata })
-        .eq("id", roomId.value);
-
-    if (updateErr) {
-        console.error("Error saving black card:", updateErr);
-        return;
-    }
+    console.log("[EDGE] success submit_black_card", data);
 
     blackCard.value = cardPayload;
 }
@@ -316,59 +314,7 @@ async function startNextRound() {
     if (!isCzar.value || !roomId.value) return;
     if (isStartingNextRound.value) return;
 
-    const { data: room, error: roomErr } = await supabase
-        .from("rooms")
-        .select("metadata")
-        .eq("id", roomId.value)
-        .single();
-
-    if (roomErr || !room?.metadata) {
-        console.error("Error loading room metadata:", roomErr);
-        return;
-    }
-
-    const { data: members, error: membersErr } = await supabase
-        .from("room_members")
-        .select("user_id, metadata")
-        .eq("room_id", roomId.value)
-        .order("joined_at", { ascending: true });
-
-    if (membersErr || !members?.length) {
-        console.error("Error loading members:", membersErr);
-        return;
-    }
-
-    const round = Number(room.metadata.round ?? 1);
-    const nextCzarId = members[round % members.length].user_id;
-
-    const resetPromises = members.map((member: any) =>
-        supabase
-            .from("room_members")
-            .update({
-                status: "waiting",
-                metadata: {
-                    ...(member.metadata ?? {}),
-                    submitted_cards: [],
-                },
-            })
-            .eq("room_id", roomId.value)
-            .eq("user_id", member.user_id),
-    );
-    await Promise.all(resetPromises);
-
-    await supabase
-        .from("rooms")
-        .update({
-            metadata: {
-                ...(room.metadata ?? {}),
-                round: round + 1,
-                czar_id: nextCzarId,
-                black_card: null,
-                round_status: "round_start",
-                current_winner: null,
-            },
-        })
-        .eq("id", roomId.value);
+    await initializeNextRound(roomId.value);
 
     isWhiteCardsSubmitted.value = false;
     myChosenWhiteCards.value = [];

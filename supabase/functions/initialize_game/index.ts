@@ -21,7 +21,7 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json().catch(() => null);
 
-    if (!body || !body.set_id || !body.room_id || !body.cardsPerPlayer) {
+    if (!body || !body.room_id) {
       return new Response(JSON.stringify({ error: "Missing parameters" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -105,7 +105,9 @@ Deno.serve(async (req: Request) => {
         .slice(poolIndex)
         .map((id) => ({ card_id: id, room_id }));
       if (remainingWhite.length > 0) {
-        insertPromises.push(supabase.from("remaining_white_cards").insert(remainingWhite));
+        insertPromises.push(
+          supabase.from("remaining_white_cards").insert(remainingWhite),
+        );
       }
 
       // 5. Black Card logic
@@ -122,34 +124,34 @@ Deno.serve(async (req: Request) => {
             supabase.from("remaining_black_cards").insert(remainingBlack),
           );
         }
-      }
-      // Fetch existing metadata first
-      const { data: room, error: roomErr } = await supabase
-        .from("rooms")
-        .select("metadata")
-        .eq("id", room_id)
-        .single();
-      if (roomErr) throw roomErr;
-
-      // Then spread existing metadata and override/add new fields
-      insertPromises.push(
-        supabase
+        // Fetch existing metadata first
+        const { data: room, error: roomErr } = await supabase
           .from("rooms")
-          .update({
-            metadata: {
-              ...(room.metadata ?? {}),
-              black_card: activeBlackCard,
-              czar_id: czarId,
-              round_status: "round_start",
-              set_id: set_id,
-              round: 1,
-              handSize: cardsPerPlayer,
-              current_winner: null,
-              mode: mode,
-            },
-          })
-          .eq("id", room_id),
-      );
+          .select("metadata")
+          .eq("id", room_id)
+          .single();
+        if (roomErr) throw roomErr;
+
+        // Then spread existing metadata and override/add new fields
+        insertPromises.push(
+          supabase
+            .from("rooms")
+            .update({
+              metadata: {
+                ...(room.metadata ?? {}),
+                black_card: activeBlackCard,
+                czar_id: czarId,
+                round_status: "round_start",
+                set_id: set_id,
+                round: 1,
+                handSize: cardsPerPlayer,
+                current_winner: null,
+                mode: mode,
+              },
+            })
+            .eq("id", room_id),
+        );
+      }
     } else {
       // Fetch existing metadata first
       const { data: room, error: roomErr } = await supabase

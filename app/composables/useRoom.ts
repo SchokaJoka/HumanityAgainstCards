@@ -26,7 +26,7 @@ export function useRoom() {
     "collectionCards",
     () => [],
   );
-  
+
   const selectedGameMode = useState<"classic" | "extended" | "creative">(
     "selectedGameMode",
     () => "classic",
@@ -246,11 +246,15 @@ export function useRoom() {
         .sort((a: any, b: any) => (a?.joined_at ?? 0) - (b?.joined_at ?? 0));
     });
 
-    gameChannel.value.on("broadcast", { event: "lobby_settings_updated" }, async (payload) => {
-      console.log("[BROADCAST] lobby_settings_updated", payload);
-      selectedGameMode.value = payload?.payload?.selectedGameMode || "classic";
-    });
-
+    gameChannel.value.on(
+      "broadcast",
+      { event: "lobby_settings_updated" },
+      async (payload) => {
+        console.log("[BROADCAST] lobby_settings_updated", payload);
+        selectedGameMode.value =
+          payload?.payload?.selectedGameMode || "classic";
+      },
+    );
 
     // BROADCAST LISTENERS
     // cards_dealt
@@ -296,22 +300,26 @@ export function useRoom() {
     });
 
     // round_submitted (fallback refresh)
-    gameChannel.value.on("broadcast", { event: "round_submitted" }, async (body) => {
-      const targetRoomId = body?.payload?.roomId ?? roomId;
-      console.log("[BROADCAST] round_submitted", targetRoomId);
-      const { data: roomData, error } = await supabase
-        .from("rooms")
-        .select("metadata")
-        .eq("id", targetRoomId)
-        .single();
+    gameChannel.value.on(
+      "broadcast",
+      { event: "round_submitted" },
+      async (body) => {
+        const targetRoomId = body?.payload?.roomId ?? roomId;
+        console.log("[BROADCAST] round_submitted", targetRoomId);
+        const { data: roomData, error } = await supabase
+          .from("rooms")
+          .select("metadata")
+          .eq("id", targetRoomId)
+          .single();
 
-      if (error) {
-        console.error("Error fetching room metadata:", error);
-        return;
-      }
+        if (error) {
+          console.error("Error fetching room metadata:", error);
+          return;
+        }
 
-      if (roomData?.metadata) handleGameStateChanges(roomData.metadata);
-    });
+        if (roomData?.metadata) handleGameStateChanges(roomData.metadata);
+      },
+    );
 
     // Realtime table listeners (after channel is created)
     gameChannel.value?.on(
