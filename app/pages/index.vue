@@ -17,7 +17,7 @@
         :class="isMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'" @click="closeMenu" />
 
       <aside
-        class="absolute left-0 top-0 h-lvh w-64 flex flex-col bg-neutral-50 shadow-lg transition-transform duration-300 ease-out"
+        class="absolute left-0 top-0 h-dvh w-64 flex flex-col bg-neutral-50 shadow-lg transition-transform duration-300 ease-out"
         :class="isMenuOpen ? 'translate-x-0' : '-translate-x-full'">
         <div class="flex items-center justify-between p-4">
           <div class="h-[24px]"></div>
