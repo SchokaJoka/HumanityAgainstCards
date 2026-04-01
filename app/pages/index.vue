@@ -81,9 +81,11 @@
 
     <!-- Main Content -->
     <section
-      class="relative flex flex-col items-center justify-start h-full w-full max-w-2xl px-16 gap-16 mt-[var(--home-header-h)]">
+      class="relative flex flex-col items-center justify-start h-full w-full max-w-2xl px-16 gap-16"
+      :style="{ paddingTop: 'var(--home-header-h, 0px)' }">
       <!-- Welcome -->
-      <div class="flex flex-col items-center justify-center h-[calc(100lvh-var(--home-header-h))] w-full gap-8">
+      <div class="flex flex-col items-center justify-center w-full gap-8"
+        :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
         <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTMQ2WRAgIAPsL-B8td9dFYqqNAsYfU1NgZ3Q&s" alt="Waldo haha">
         <h1 class="w-full h-fit text-black text-5xl font-normal">
           Cards against Waldo *uwu*
@@ -93,7 +95,8 @@
       </div>
 
       <!-- How To Play -->
-      <div class="flex flex-col gap-1 justify-center h-[calc(100lvh-var(--home-header-h))]">
+      <div class="flex flex-col gap-1 justify-center"
+        :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
         <h1 class="w-full h-fit text-black text-4xl font-normal">How to Play</h1>
         <ul class="w-full h-fit text-black text-xl font-normal px-4 list-disc list-outside pl-6">
           <li>Each player starts with a hand of 10 white cards.</li>
