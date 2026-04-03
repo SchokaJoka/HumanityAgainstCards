@@ -580,9 +580,8 @@ const dev2gaps = ref(false);
       :class="isCzar ? 'flex-col-reverse justify-start' : 'flex-col justify-start'">
       <TransitionGroup name="fade">
         <!-- Black Card -->
-        <div v-if="blackCard"
-          class="w-full max-h-[40dvh] max-w-[55dvw] min-w-[16rem] md:max-w-md h-96 rounded-xl bg-black p-6 pb-12 text-lg font-bold text-white">
-          <div class="">
+        <div v-if="blackCard" class="rounded-xl bg-black p-6 pb-12 text-lg font-bold text-white">
+          <div class="w-56 h-72">
             <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
               :class="part.isGap ? 'm-1 p-2 bg-white text-black rounded-md cursor-pointer' : ''"
               @click="deleteWhiteCardAtGap(part.gapIndex)">
