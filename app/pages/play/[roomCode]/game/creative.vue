@@ -394,8 +394,8 @@ onMounted(async () => {
 
     gameManagerRoomId.value = roomId.value;
 
-    const roomMetadata = await getRoomMetadata(roomId.value);
-
+    /*     const roomMetadata = await getRoomMetadata(roomId.value);
+     */
     if (user.value) {
         playerId.value = user.value.sub;
     } else {
@@ -419,15 +419,18 @@ onMounted(async () => {
 
     await syncPlayerScoresForRoom(roomId.value);
 
+    /*     if (!gameChannel.value) {
+            enterRoom(roomId.value, roomCode.value, playerId.value, "waiting");
+        }
+    
+        const metadata = (roomMetadata?.metadata ?? null) as any;
+        if (metadata) {
+            await handleGameStateChanges(metadata); */
     if (!gameChannel.value) {
-        enterRoom(roomId.value, roomCode.value, playerId.value, "waiting");
+        await enterRoom(roomId.value, roomCode.value, playerId.value, "waiting");
     }
-
-    const metadata = (roomMetadata?.metadata ?? null) as any;
-    if (metadata) {
-        await handleGameStateChanges(metadata);
-    }
-});
+}
+);
 
 onBeforeRouteLeave((to) => {
     if (to.params.roomCode === route.params.roomCode) {

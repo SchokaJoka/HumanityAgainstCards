@@ -70,6 +70,38 @@ export function useGameManager() {
     if (isStartingGame.value) return;
     isStartingGame.value = true;
 
+    // Call server to initialize game state first (authoritative DB writes)
+    console.log("[GameManager] Invoke initialize_game (server-first)");
+    try {
+      const invokeBody: any = {
+        set_id: collectionId,
+        room_id: roomId,
+        cardsPerPlayer: mode === "creative" ? null : 8,
+        dev2gaps: dev2gaps,
+        mode: mode,
+      };
+
+      const { data: edgeInitializeData, error: invokeError } =
+        await supabase.functions.invoke("initialize_game", {
+          method: "POST",
+          body: invokeBody,
+        });
+
+      if (invokeError || !edgeInitializeData) {
+        console.error(
+          "Failed to assign hand cards (initialize_game):",
+          invokeError,
+        );
+        isStartingGame.value = false;
+        return;
+      }
+    } catch (e) {
+      console.error("Error invoking initialize_game:", e);
+      isStartingGame.value = false;
+      return;
+    }
+
+    // After server writes complete, broadcast navigation and start events so clients receive authoritative state
     console.log("[GameManager] Broadcasting navigate_to_game");
     gameChannel.value.send({
       type: "broadcast",
@@ -92,48 +124,6 @@ export function useGameManager() {
       event: "game_start",
     });
 
-    if (mode !== "creative") {
-      console.log("[GameManager] Invoke initialize_game");
-      const { data: edgeInitializeData } = await supabase.functions.invoke(
-        "initialize_game",
-        {
-          method: "POST",
-          body: {
-            set_id: collectionId,
-            room_id: roomId,
-            cardsPerPlayer: 8,
-            dev2gaps: dev2gaps,
-            mode: mode
-          },
-        },
-      );
-
-      if (!edgeInitializeData) {
-        console.error("Failed to assign hand cards.");
-        return;
-      }
-    } else {
-      console.log("[GameManager] Invoke initialize_game");
-      const { data: edgeInitializeData } = await supabase.functions.invoke(
-        "initialize_game",
-        {
-          method: "POST",
-          body: {
-            set_id: null,
-            room_id: roomId,
-            cardsPerPlayer: null,
-            dev2gaps: dev2gaps,
-            mode: mode
-          },
-        },
-      );
-
-      if (!edgeInitializeData) {
-        console.error("Failed to assign hand cards.");
-        return;
-      }
-    }
-
     console.log("[GameManager] gameChannel:", gameChannel.value);
 
     if (mode !== "creative") {
@@ -148,7 +138,7 @@ export function useGameManager() {
     isStartingGame.value = false;
   }
 
-  async function initializeCreativeGame(roomId: string, roomCode: string) {
+  /*   async function initializeCreativeGame(roomId: string, roomCode: string) {
     console.log("[GameManager] initializeGame called with:", {
       roomId,
       roomCode,
@@ -165,18 +155,50 @@ export function useGameManager() {
     if (isStartingGame.value) return;
     isStartingGame.value = true;
 
+    // Call server to initialize creative game first (authoritative DB writes)
+    console.log(
+      "[GameManager] Invoke initialize_game for creative (server-first)",
+    );
+    try {
+      const { data: edgeInitializeData, error: invokeError } =
+        await supabase.functions.invoke("initialize_game", {
+          method: "POST",
+          body: {
+            set_id: null,
+            room_id: roomId,
+            cardsPerPlayer: null,
+            dev2gaps: false,
+            mode: "creative",
+          },
+        });
+
+      if (invokeError || !edgeInitializeData) {
+        console.error(
+          "Failed to assign hand cards (initialize_game creative):",
+          invokeError,
+        );
+        isStartingGame.value = false;
+        return;
+      }
+    } catch (e) {
+      console.error("Error invoking initialize_game for creative:", e);
+      isStartingGame.value = false;
+      return;
+    }
+
+    // After DB writes complete, broadcast navigation and start events
     console.log("[GameManager] Broadcasting navigate_to_game");
     gameChannel.value.send({
       type: "broadcast",
       event: "navigate_to_game",
-      payload: { roomCode, mode },
+      payload: { roomCode, mode: "creative" },
     });
 
     console.log("[GameManager] Broadcasting game_initialize");
     gameChannel.value.send({
       type: "broadcast",
       event: "game_initialize",
-      payload: { set_id: collectionId },
+      payload: { set_id: null },
     });
 
     console.log("[GameManager] Broadcasting game_start");
@@ -184,27 +206,6 @@ export function useGameManager() {
       type: "broadcast",
       event: "game_start",
     });
-
-    console.log("[GameManager] Invoke initialize_game");
-    const { data: edgeInitializeData } = await supabase.functions.invoke(
-      "initialize_game",
-      {
-        method: "POST",
-        body: {
-          set_id: collectionId,
-          room_id: roomId,
-          cardsPerPlayer: 8,
-          dev2gaps: dev2gaps,
-        },
-      },
-    );
-
-    if (!edgeInitializeData) {
-      console.error("Failed to assign hand cards.");
-      return;
-    }
-
-    console.log("[GameManager] gameChannel:", gameChannel.value);
 
     console.log("[GameManager] Broadcasting cards_dealt");
     gameChannel.value.send({
@@ -214,7 +215,7 @@ export function useGameManager() {
     });
 
     isStartingGame.value = false;
-  }
+  } */
 
   // ACTION - Start next round (Czar)
   async function initializeNextRound(roomId: string | null) {
@@ -251,6 +252,18 @@ export function useGameManager() {
   }
 
   async function handleGameStateChanges(currentMetaData: any) {
+    // Deduplicate identical metadata updates to avoid duplicate handling/logs
+    try {
+      const prev = gameState.value ?? null;
+      if (prev && JSON.stringify(prev) === JSON.stringify(currentMetaData)) {
+        console.debug("[HANDLEGAMESTATECHANGES] Ignoring duplicate metadata update");
+        return;
+      }
+    } catch (e) {
+      // If comparison fails, continue and handle normally
+      console.warn("[HANDLEGAMESTATECHANGES] metadata comparison failed", e);
+    }
+
     gameState.value = currentMetaData;
     console.log("[HANDLEGAMESTATECHANGES] gameState: ", gameState.value);
     roundStatus.value = currentMetaData.round_status;
@@ -365,7 +378,7 @@ export function useGameManager() {
 
     // Functions
     initializeGame,
-    initializeCreativeGame,
+    /*  initializeCreativeGame, */
     initializeNextRound,
     /* getGameMasterId, */
     handleGameStateChanges,
