@@ -275,7 +275,10 @@ export function useRoom() {
       }
 
       // If fetch returned empty but we previously had cards, retry once after a short delay
-      if ((data ?? []).length === 0 && (playerHandCards.value ?? []).length > 0) {
+      if (
+        (data ?? []).length === 0 &&
+        (playerHandCards.value ?? []).length > 0
+      ) {
         await new Promise((res) => setTimeout(res, 200));
         const second = await fetchHand();
         data = second.data;
@@ -312,7 +315,7 @@ export function useRoom() {
     // game_start
     gameChannel.value.on("broadcast", { event: "game_start" }, () => {
       console.log("[BROADCAST] game_start");
-/*       gameStarted.value = true; */
+      /*       gameStarted.value = true; */
     });
 
     // round_submitted (fallback refresh)
