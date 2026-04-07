@@ -147,7 +147,7 @@ const myPresenceStatus = computed(() => {
 });
 
 watch(myPresenceStatus, async () => {
-    await trackMyStatus(myPresenceStatus.value);
+    await trackMyStatus(myPresenceStatus.value, roomId.value);
 });
 
 watch(

@@ -136,7 +136,7 @@ export function useRoom() {
       .eq("user_id", playerId);
   }
 
-  async function trackMyStatus(myPresenceStatus: string) {
+  async function trackMyPresence() {
     if (!gameChannel.value || !user.value || !user.value.sub) return;
     if (gameChannel.value.state !== "joined") return;
 
@@ -144,11 +144,28 @@ export function useRoom() {
       await gameChannel.value.track({
         user_id: user.value.sub,
         user_name: user.value.user_metadata?.full_name,
-        status: myPresenceStatus,
         joined_at: presenceJoinedAt,
       });
     } catch (error) {
       console.warn("[useRoom] Failed to track presence", error);
+    }
+  }
+
+  async function trackMyStatus(myPresenceStatus: string, roomId: string) {
+    if (!user.value || !user.value.sub) return;
+
+    try {
+      const { error } = await supabase
+        .from("room_members")
+        .update({ status: myPresenceStatus })
+        .eq("room_id", roomId)
+        .eq("user_id", user.value.sub);
+
+      if (error) {
+        console.warn("[useRoom] Failed to update player status", error);
+      }
+    } catch (error) {
+      console.warn("[useRoom] Error updating player status", error);
     }
   }
 
@@ -185,7 +202,10 @@ export function useRoom() {
 
     gameChannel.value?.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
-        await trackMyStatus(initialStatus);
+        await trackMyPresence();
+        if (initialStatus) {
+          await trackMyStatus(initialStatus, roomId);
+        }
       }
     });
   }
@@ -294,6 +314,29 @@ export function useRoom() {
       }
     );
 
+    // POSTGRES CHANGES - room_members status updates
+    gameChannel.value?.on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "room_members",
+        filter: `room_id=eq.${roomId}`,
+      },
+      (payload) => {
+        console.log("[POSTGRES] room_members status updated:", payload.new.user_id, payload.new.status);
+        
+        // Update player status in local players list
+        const playerIndex = players.value.findIndex((p) => p.user_id === payload.new.user_id);
+        if (playerIndex !== -1) {
+          players.value[playerIndex] = {
+            ...players.value[playerIndex],
+            status: payload.new.status,
+          };
+        }
+      }
+    );
+
     // BROADCAST LISTENERS
 
     // game_initialize
@@ -382,6 +425,7 @@ export function useRoom() {
     enterRoom,
     deletePlayerFromRoomTable,
     markMemberInactive,
+    trackMyPresence,
     trackMyStatus,
     setupBroadcastListeners,
     loadInitialHandCards,
