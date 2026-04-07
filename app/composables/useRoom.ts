@@ -16,6 +16,7 @@ export function useRoom() {
   );
 
   const gameMasterId = useState<string>("gameMasterId", () => "");
+  const { updatePlayerScoreFromMember } = usePlayerScores();
   const { handleGameStateChanges } = useGameManager();
 
   const isLeaving = ref<boolean>(false);
@@ -184,9 +185,7 @@ export function useRoom() {
       console.error("[useRoom] Error loading initial hand cards:", error);
       return;
     }
-
     playerHandCards.value = data ?? [];
-    console.log("[useRoom] loadInitialHandCards:", playerHandCards.value.length);
   }
 
   async function enterRoom(
@@ -218,6 +217,7 @@ export function useRoom() {
         role: "player",
         is_active: true,
         left_at: null,
+        user_name: user.value?.user_metadata?.full_name,
         joined_at: new Date().toISOString(),
       },
       { onConflict: "room_id,user_id" },
@@ -260,6 +260,8 @@ export function useRoom() {
         .map((arr: any) => arr?.[0])
         .filter(Boolean)
         .sort((a: any, b: any) => (a?.joined_at ?? 0) - (b?.joined_at ?? 0));
+
+      console.log("[PRESENCE] Sync - Current players:", players.value);
     });
 
     gameChannel.value.on(
@@ -324,8 +326,6 @@ export function useRoom() {
         filter: `room_id=eq.${roomId}`,
       },
       (payload) => {
-        console.log("[POSTGRES] room_members status updated:", payload.new.user_id, payload.new.status);
-        
         // Update player status in local players list
         const playerIndex = players.value.findIndex((p) => p.user_id === payload.new.user_id);
         if (playerIndex !== -1) {
@@ -334,6 +334,8 @@ export function useRoom() {
             status: payload.new.status,
           };
         }
+        // Update player score from member data
+        updatePlayerScoreFromMember(payload.new);
       }
     );
 
@@ -355,6 +357,7 @@ export function useRoom() {
           return;
         }
         collectionCards.value = data2 ?? [];
+        console.log("[BROADCAST] loaded collection cards:", collectionCards.value.length);
       },
     );
 
