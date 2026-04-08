@@ -165,6 +165,7 @@ export function useGameManager() {
     updateIfChanged(gameState, currentMetaData);
     updateIfChanged(roundStatus, currentMetaData.round_status);
     updateIfChanged(gameStarted, currentMetaData.round_status !== "lobby");
+  
 
     switch (currentMetaData.round_status) {
       case "round_start":
@@ -246,9 +247,9 @@ export function useGameManager() {
     if (!winnerId) return;
     winnerUserId.value = winnerId;
     winnerUsername.value =
-      players.value.find((p) => p.user_id === winnerId)?.user_name || "";
+      players.value.find((p) => p.user_id === winnerId)?.user_name ?? "";
     winnerCards.value =
-      currentMetaData.current_winner?.metadata?.submitted_cards ?? [];
+      currentMetaData.current_winner?.metadata?.submitted_cards;
   }
 
   return {
