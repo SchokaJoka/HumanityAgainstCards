@@ -96,7 +96,43 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 2. Draw and assign new black card
+    // 2. Ensure remaining_black_cards has cards; if empty, refill from set(s)
+    const { count: blackRemainingCount, error: blackRemainingCountErr } =
+      await supabase
+        .from("remaining_black_cards")
+        .select("card_id", { count: "exact" })
+        .eq("room_id", room_id);
+    if (blackRemainingCountErr) throw blackRemainingCountErr;
+
+    if ((blackRemainingCount ?? 0) < 1) {
+      // Fetch all black cards for the room's set(s)
+      const setId = room.metadata?.set_id;
+      let blackQuery = supabase.from("cards").select("id").eq("is_black", true);
+      if (Array.isArray(setId)) {
+        blackQuery = blackQuery.in("collection_id", setId as string[]);
+      } else if (setId) {
+        blackQuery = blackQuery.eq("collection_id", setId as string);
+      }
+      const { data: allBlackCards, error: allBlackErr } = await blackQuery;
+      if (allBlackErr) throw allBlackErr;
+      const blackIds = (allBlackCards ?? []).map((c: any) => c.id);
+
+      // Shuffle and insert into remaining_black_cards
+      for (let i = blackIds.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [blackIds[i], blackIds[j]] = [blackIds[j], blackIds[i]];
+      }
+
+      if (blackIds.length > 0) {
+        const rows = blackIds.map((card_id: string) => ({ card_id, room_id }));
+        const { error: insertBlackErr } = await supabase
+          .from("remaining_black_cards")
+          .insert(rows);
+        if (insertBlackErr) throw insertBlackErr;
+      }
+    }
+
+    // Draw and assign new black card
     const { data: newBlackCard, error: blackFetchErr } = await supabase
       .from("remaining_black_cards")
       .select("*")
@@ -194,16 +230,24 @@ Deno.serve(async (req: Request) => {
         );
 
         // Prefer to refill from discard (played/submitted). Exclude cards currently in hands.
-        const playedIds = new Set((room.metadata?.played_white_cards as string[]) ?? []);
-        const submittedIds = new Set((room.metadata?.submitted_white_cards as string[]) ?? []);
+        const playedIds = new Set(
+          (room.metadata?.played_white_cards as string[]) ?? [],
+        );
+        const submittedIds = new Set(
+          (room.metadata?.submitted_white_cards as string[]) ?? [],
+        );
         const usedIds = new Set<string>([...playedIds, ...submittedIds]);
 
         let refillIds: string[] = [];
         if (usedIds.size > 0) {
-          refillIds = Array.from(usedIds).filter((id: string) => !currentHandIds.has(id));
+          refillIds = Array.from(usedIds).filter(
+            (id: string) => !currentHandIds.has(id),
+          );
         } else {
           // Fallback: use all collection cards minus current hands
-          refillIds = allCardIds.filter((id: string) => !currentHandIds.has(id));
+          refillIds = allCardIds.filter(
+            (id: string) => !currentHandIds.has(id),
+          );
         }
 
         // Shuffle refill deck
