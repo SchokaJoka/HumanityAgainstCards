@@ -50,7 +50,7 @@ function submitBlackCard() {
         .join("");
 
     console.log("submitBlackCard:", { text: text, number_of_gaps: number_of_gaps.value });
-    
+
     emit('submit', {
         text,
         number_of_gaps: number_of_gaps.value,
@@ -59,7 +59,7 @@ function submitBlackCard() {
 
 watch(currentBlackCardText, () => {
     console.log("Current Black Card Text:", currentBlackCardText.value);
-}, {deep: true});
+}, { deep: true });
 </script>
 
 <template>
@@ -71,11 +71,8 @@ watch(currentBlackCardText, () => {
                     class="bg-white px-3 py-1 rounded text-center font-bold text-black border-[3px] border-white">
                     ___
                 </div>
-                <input
-                    v-else
-                    v-model="part.text"
-                    class="w-full h-fit bg-neutral-600 border-[3px] border-white text-white text-lg px-2 py-1 outline-none rounded break-words whitespace-pre-wrap resize-y leading-snug"
-                ></input>
+                <input v-else v-model="part.text"
+                    class="w-full h-fit bg-neutral-600 border-[3px] border-white text-white text-lg px-2 py-1 outline-none rounded break-words whitespace-pre-wrap resize-y leading-snug"></input>
             </div>
         </div>
         <div class="w-full flex flex-row gap-2">
@@ -83,7 +80,7 @@ watch(currentBlackCardText, () => {
                 variant="primary" size="sm" block class="rounded-xl">Insert Gap</Button>
             <Button v-if="currentBlackCardText[currentBlackCardText.length - 1]?.isGap" @click="insertText()"
                 variant="primary" size="sm" block class="rounded-xl">Insert Text</Button>
-            <Button v-if="currentBlackCardText.length > 1" @click="deleteLast()" variant="primary" size="sm" block
+            <Button v-if="currentBlackCardText.length" @click="deleteLast()" variant="primary" size="sm" block
                 class="rounded-xl">Delete Last</Button>
             <Button v-if="currentBlackCardText.length > 1" @click="submitBlackCard()" variant="tertiary" size="sm" block
                 class="rounded-xl">Submit</Button>

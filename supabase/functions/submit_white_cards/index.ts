@@ -1,5 +1,4 @@
 import { createClient } from "npm:@supabase/supabase-js@2.29.0";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -148,6 +147,45 @@ Deno.serve(async (req: Request) => {
         })
         .eq("id", room_id);
       if (roomUpdateErr) throw roomUpdateErr;
+
+      try {
+        // If this room has a saved collection configured, copy the submitted cards' text
+        // into that collection so future submissions are stored automatically.
+        const savedCollectionId = (roomRow?.metadata?.saved_collection_id ??
+          null) as string | null;
+        if (savedCollectionId) {
+          const { data: cardRows, error: cardFetchErr } = await supabase
+            .from("cards")
+            .select("text, is_black, number_of_gaps")
+            .in("id", submittedCardIds);
+          if (cardFetchErr) {
+            console.error(
+              "Error fetching cards for saved collection append:",
+              cardFetchErr,
+            );
+          } else {
+            const cardsToInsert = (cardRows ?? []).map((c: any) => ({
+              text: c.text,
+              is_black: c.is_black ?? false,
+              number_of_gaps: Number(c.number_of_gaps ?? 0),
+              collection_id: savedCollectionId,
+            }));
+
+            if (cardsToInsert.length) {
+              const { error: insertErr } = await supabase
+                .from("cards")
+                .insert(cardsToInsert);
+              if (insertErr)
+                console.error(
+                  "Error inserting cards into saved collection:",
+                  insertErr,
+                );
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Saved-collection append (non-critical) failed:", e);
+      }
     } else {
       // --- Step 2: Update room_members — merge submitted card IDs into metadata, set status = "submitted" ---
       const { data: memberRow, error: memberFetchError } = await supabase
@@ -189,6 +227,32 @@ Deno.serve(async (req: Request) => {
         })
         .eq("id", room_id);
       if (roomUpdateError) throw roomUpdateError;
+
+      try {
+        // For creative-mode submissions (objects with text), also copy into saved collection if present
+        const savedCollectionIdCreative = (roomData?.metadata
+          ?.saved_collection_id ?? null) as string | null;
+        if (savedCollectionIdCreative) {
+          const cardsToInsert = (submitted_cards ?? []).map((c: any) => ({
+            text: c.text,
+            is_black: false,
+            collection_id: savedCollectionIdCreative,
+          }));
+
+          if (cardsToInsert.length) {
+            const { error: insertErr } = await supabase
+              .from("cards")
+              .insert(cardsToInsert);
+            if (insertErr)
+              console.error(
+                "Error inserting creative cards into saved collection:",
+                insertErr,
+              );
+          }
+        }
+      } catch (e) {
+        console.error("Saved-collection (creative) append failed:", e);
+      }
     }
 
     // --- Step 4: Check if ALL non-czar players in the room have status "submitted" ---

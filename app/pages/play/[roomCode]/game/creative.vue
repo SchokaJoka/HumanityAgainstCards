@@ -20,6 +20,8 @@ const isWhiteCardsSubmitted = useState<boolean>("isWhiteCardsSubmitted", () => f
 const isSubmittingWhiteCards = ref<boolean>(false);
 const isChoosingWinner = ref<boolean>(false);
 
+const savedCollectionId = ref<string | null>(null);
+
 const gameStarted = useState<boolean>("gameStarted", () => false);
 const GAP_TOKEN = "[[W1tnYXBdXQ==]]";
 
@@ -157,6 +159,14 @@ const updateCreativeCardText = (payload: { index: number; text: string }) => {
 
     next[payload.index] = payload.text;
     myChosenWhiteCards.value = next;
+};
+
+const handleCreativeInputFocus = () => {
+    // intentionally empty — provided for carousel input focus events
+};
+
+const handleCreativeInputBlur = () => {
+    // intentionally empty — provided for carousel input blur events
 };
 
 async function submitBlackCard(text: string, number_of_gaps: number) {
@@ -316,6 +326,22 @@ async function saveSet() {
     const { error: cardsErr } = await supabase.from("cards").insert(cardsToInsert);
     if (cardsErr) {
         console.error("Error saving cards:", cardsErr);
+    } else {
+        // Save the created collection id into room metadata so future submissions are auto-appended
+        const { error: roomUpdateErr } = await supabase
+            .from("rooms")
+            .update({
+                metadata: {
+                    ...(metadata ?? {}),
+                    saved_collection_id: collectionId,
+                },
+            })
+            .eq("id", roomId.value);
+        if (roomUpdateErr) {
+            console.error("Error updating room metadata with saved collection:", roomUpdateErr);
+        } else {
+            savedCollectionId.value = collectionId;
+        }
     }
 }
 
@@ -360,6 +386,7 @@ onMounted(async () => {
             if (initialMetadata) {
                 await syncPlayerScoresForRoom(roomId.value);
                 await handleGameStateChanges(initialMetadata);
+                savedCollectionId.value = initialMetadata?.saved_collection_id ?? null;
             }
         } catch (error) {
             console.error("Error loading initial room metadata:", error);
@@ -410,7 +437,8 @@ const roundStatusMessage = computed(() => {
 <template>
     <main class="flex flex-col items-center w-full min-h-dvh">
         <!-- Header -->
-        <header ref="headerEl" class="fixed pt-[env(safe-area-inset-top),0px)] w-full flex flex-col p-4 gap-2 z-40">
+        <header ref="headerEl"
+            class="fixed pt-[env(safe-area-inset-top),0px)] w-full flex flex-col p-4 gap-2 z-40 bg-white">
             <div class="w-full flex flex-row items-stretch justify-between gap-2">
                 <div class="flex flex-row w-full items-center justify-start overflow-x-auto gap-2">
                     <div v-for="player in players" :key="player.user_id" class="flex flex-col items-center gap-1">
@@ -437,11 +465,11 @@ const roundStatusMessage = computed(() => {
 
         <!-- Game Section -->
         <section name="game-section" v-if="gameStarted"
-            class="w-full mt-[var(--sets-header-h)] h-[calc(100dvh-var(--sets-header-h))] flex items-center gap-4 overflow-y-visible py-4"
+            class="w-full mt-[var(--sets-header-h)] h-[calc(100dvh-var(--sets-header-h))] flex items-center gap-2 overflow-y-visible pb-4"
             :class="isCzar
                 ? roundStatus === 'round_create_black_card'
                     ? 'flex-col justify-start'
-                    : 'flex-col-reverse justify-start'
+                    : 'flex-col-reverse justify-end'
                 : 'flex-col justify-start'">
             <TransitionGroup name="fade">
 
@@ -470,7 +498,7 @@ const roundStatusMessage = computed(() => {
                 </div>
 
                 <!-- Czar Judging Carousel -->
-                <div v-if="roundStatus === 'round_submitted'" class="w-full h-full overflow-y-visible">
+                <div v-if="roundStatus === 'round_submitted'" class="w-full h-full overflow-y-clip">
                     <MyCarouselJudging :items="judgingCarouselItems" :lookup-cards="judgingLookupCards"
                         :selected-ids="selectedJudgingCardIds" selected-class="selected-judging"
                         @select-item="pickWinner" />
@@ -519,8 +547,8 @@ const roundStatusMessage = computed(() => {
                     :disabled="isStartingNextRound" variant="primary" size="md" class="rounded-xl" key="next-round">
                     {{ isStartingNextRound ? 'Loading...' : 'Next Round' }}
                 </Button>
-                <Button v-if="roundStatus === 'round_end' && isGameMaster" @click="saveSet" variant="tertiary" size="md"
-                    class="rounded-xl">
+                <Button v-if="roundStatus === 'round_end' && isGameMaster && !savedCollectionId" @click="saveSet"
+                    variant="tertiary" size="md" class="rounded-xl">
                     Save Set
                 </Button>
             </TransitionGroup>

@@ -105,7 +105,7 @@ function save() {
                 <div class="w-full flex flex-row gap-2">
                     <Button v-if="!currentBlackCardText[currentBlackCardText.length - 1]?.isGap" @click="insertGap()" variant="primary"
                         size="sm" block class="rounded-xl">Insert Gap</Button>
-                    <Button v-if="currentBlackCardText[currentBlackCardText.length - 1]?.isGap" @click="insertText()" variant="primary"
+                    <Button v-if="!currentBlackCardText[currentBlackCardText.length - 1]?.isGap" @click="insertText()" variant="primary"
                         size="sm" block class="rounded-xl">Insert Text</Button>
                     <Button v-if="currentBlackCardText.length > 1" @click="deleteLast()" variant="primary" size="sm" block
                         class="rounded-xl">Delete</Button>

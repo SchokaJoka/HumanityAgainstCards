@@ -80,6 +80,22 @@ Deno.serve(async (req: Request) => {
       .eq("id", room_id);
     if (updateErr) throw updateErr;
 
+    // If room has a saved collection, copy this black card into it so future cards are appended.
+    const savedCollectionId = (metadata?.saved_collection_id ?? null) as
+      | string
+      | null;
+    if (savedCollectionId) {
+      const { error: insertErr } = await supabase.from("cards").insert([
+        {
+          text: card.text,
+          is_black: true,
+          number_of_gaps: Number(card.number_of_gaps ?? 0),
+          collection_id: savedCollectionId,
+        },
+      ]);
+      if (insertErr) throw insertErr;
+    }
+
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
