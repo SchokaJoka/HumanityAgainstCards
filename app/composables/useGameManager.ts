@@ -2,12 +2,14 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export function useGameManager() {
   const supabase = useSupabaseClient();
+  const user = useSupabaseUser();
 
   const players = useState<any[]>("players", () => []);
   const gameChannel = useState<RealtimeChannel | null>(
     "gameChannel",
     () => null,
   );
+
   const isGameMaster = useState<boolean>("isGameMaster", () => false);
   const gameState = useState<any>("gameState", () => ({}));
   const roundStatus = useState<string>("roundStatus", () => "lobby");
@@ -20,6 +22,13 @@ export function useGameManager() {
     "isWhiteCardsSubmitted",
     () => false,
   );
+
+  const gameStarted = useState<boolean>("gameStarted", () => false);
+
+  const myPresenceStatus = useState<string>("myPresenceStatus", () => "");
+  
+  const isCzar = useState<boolean>("isCzar", () => false);
+
   const myChosenWhiteCards = useState<any[]>("myChosenWhiteCards", () => []);
 
   const isStartingGame = ref(false);
@@ -30,19 +39,37 @@ export function useGameManager() {
   const roomId = useState<string | null>("gameManagerRoomId", () => null);
   const playerId = useState<string | null>("gameManagerPlayerId", () => null);
 
-  const gameStarted = useState<boolean>("gameStarted", () => false);
+  watch([gameStarted, roundStatus, isCzar, isWhiteCardsSubmitted, winnerUserId, playerId], () => {
+    if (!gameStarted.value || roundStatus.value === "lobby") {
+      myPresenceStatus.value = "waiting";
+      return;
+    }
 
-  const { getCardCollections } = useCards();
+    if (roundStatus.value === "round_start") {
+      if (isCzar.value) {
+        myPresenceStatus.value = "czar";
+        return;
+      }
+      myPresenceStatus.value = isWhiteCardsSubmitted.value ? "submitted" : "choosing";
+      return;
+    }
 
-  /*   async function getGameMasterId(roomId: string): Promise<string | null> {
-    const { data } = await supabase
-      .from("rooms")
-      .select("owner")
-      .eq("id", roomId)
-      .single();
+    if (roundStatus.value === "round_submitted") {
+      myPresenceStatus.value = isCzar.value ? "judging" : "waiting";
+      return;
+    }
 
-    return data?.owner ?? null;
-  } */
+    if (roundStatus.value === "round_end") {
+      if (winnerUserId.value && winnerUserId.value === playerId.value) {
+        myPresenceStatus.value = "winner";
+        return;
+      }
+      myPresenceStatus.value = "round end";
+      return;
+    }
+
+    myPresenceStatus.value = "playing";
+  });
 
   async function initializeGame(
     roomId: string,
@@ -232,6 +259,7 @@ export function useGameManager() {
       return;
     }
     isWhiteCardsSubmitted.value = data?.status === "submitted";
+    trackMyStatus(myPresenceStatus.value, roomId.value)
   }
 
   async function handleRoundSubmitted(currentMetaData: any) {
@@ -279,6 +307,24 @@ export function useGameManager() {
       currentMetaData.current_winner?.metadata?.submitted_cards;
   }
 
+  async function trackMyStatus(myPresenceStatus: string, roomId: string) {
+    if (!user.value || !user.value.sub) return;
+
+    try {
+      const { error } = await supabase
+        .from("room_members")
+        .update({ status: myPresenceStatus })
+        .eq("room_id", roomId)
+        .eq("user_id", user.value.sub);
+
+      if (error) {
+        console.warn("[useRoom] Failed to update player status", error);
+      }
+    } catch (error) {
+      console.warn("[useRoom] Error updating player status", error);
+    }
+  }
+
   return {
     // Variables
     isStartingGame,
@@ -295,7 +341,9 @@ export function useGameManager() {
     gameManagerRoomId: roomId,
     gameManagerPlayerId: playerId,
 
+    
     // Functions
+    trackMyStatus,
     initializeGame,
     /*  initializeCreativeGame, */
     initializeNextRound,

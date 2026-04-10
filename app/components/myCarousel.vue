@@ -6,7 +6,7 @@
       <article v-for="(item, index) in items" :key="String(item.id)" class="card"
         :class="isSelected(item) ? (selectedClass || 'selected') : ''" :style="getCardStyle(item, index)"
         @click="emitSelect(item)">
-        <p>{{ getCardText(item.card_id) }}</p>
+        <div class="font-semibold">{{ getCardText(item.card_id) }}</div>
       </article>
     </div>
   </div>
@@ -168,12 +168,7 @@ onUnmounted(() => {
 }
 
 .card.selected {
-  @apply border-violet-400 bg-violet-100;
+  @apply bg-violet-500 border-violet-700 text-white;
 
-}
-
-.card p {
-  @apply m-0 text-gray-900 font-bold text-center pointer-events-none;
-  line-height: 1.35;
 }
 </style>

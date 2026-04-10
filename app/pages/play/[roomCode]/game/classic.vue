@@ -48,7 +48,6 @@ const {
   enterRoom,
   deletePlayerFromRoomTable,
   markMemberInactive,
-  trackMyStatus,
   setupBroadcastListeners,
   loadInitialHandCards,
   leaveRoomRealtime,
@@ -86,8 +85,10 @@ const czarId = computed(() => {
   return gameState.value?.czar_id ?? null;
 });
 
-const isCzar = computed(() => {
-  return !!playerId.value && playerId.value === czarId.value;
+const isCzar = useState<boolean>("isCzar", () => false);
+
+watch([playerId, czarId], () => {
+  isCzar.value = !!playerId.value && playerId.value === czarId.value;
 });
 
 const numberOfCardsToPlay = computed(() => {
@@ -136,33 +137,6 @@ const getTextParts = (text: string): TextPart[] => {
 const blackCardTextParts = computed(() => {
   const text = blackCard.value?.text || "";
   return getTextParts(text);
-});
-
-const myPresenceStatus = computed(() => {
-  if (!gameStarted.value || roundStatus.value === "lobby") {
-    return "waiting";
-  }
-
-  if (roundStatus.value === "round_start") {
-    if (isCzar.value) return "czar";
-    return isWhiteCardsSubmitted.value ? "submitted" : "choosing";
-  }
-
-  if (roundStatus.value === "round_submitted") {
-    return isCzar.value ? "judging" : "waiting";
-  }
-
-  if (roundStatus.value === "round_end") {
-    if (winnerUserId.value && winnerUserId.value === playerId.value)
-      return "winner";
-    return "round end";
-  }
-
-  return "playing";
-});
-
-watch(myPresenceStatus, async () => {
-  await trackMyStatus(myPresenceStatus.value, roomId.value);
 });
 
 const round = computed(() => {
@@ -474,7 +448,9 @@ const roundStatusMessage = computed(() => {
     case "round_start":
       return isCzar.value
         ? "Wait for players to submit..."
-        : "Pick your white card(s)!";
+        : isWhiteCardsSubmitted.value
+          ? "Waiting for other players..."
+          : "Pick your white card(s)!";
     case "round_submitted":
       return isCzar.value
         ? "Pick the winner!"
@@ -586,8 +562,8 @@ const dev2gaps = ref(false);
         <TransitionGroup name="fade">
           <!-- Black Card -->
           <div v-if="blackCard"
-            class="rounded-xl border-[3px] border-white w-52 h-64 bg-black p-4 text-normal font-bold text-white z-10 overflow-y-auto">
-            <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`" :class="part.isGap ? '' : ''"
+            class="rounded-xl border-[3px] border-white w-52 h-64 bg-black p-4 text-normal font-bold z-10 overflow-y-auto">
+            <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`" :class="part.isGap ? 'text-violet-400' : 'text-white'"
               @click="deleteWhiteCardAtGap(part.gapIndex)">
               {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "___" : part.text }}
             </span>
@@ -618,9 +594,9 @@ const dev2gaps = ref(false);
           <!-- Black Card -->
           <div v-if="blackCard" class="bg-black h-64 w-full rounded-xl p-4 font-bold border-2 border-black z-10">
             <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
-              class="text-white w-full overflow-y-auto" :class="part.isGap ? '' : ''"
+              class="w-full overflow-y-auto" :class="part.isGap ? 'text-violet-500' : 'text-white'"
               @click="deleteWhiteCardAtGap(part.gapIndex)">
-              {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "_____" : part.text }}
+              {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "________" : part.text }}
             </span>
           </div>
           <!-- Winner White Cards -->

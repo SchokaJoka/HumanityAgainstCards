@@ -152,24 +152,6 @@ export function useRoom() {
     }
   }
 
-  async function trackMyStatus(myPresenceStatus: string, roomId: string) {
-    if (!user.value || !user.value.sub) return;
-
-    try {
-      const { error } = await supabase
-        .from("room_members")
-        .update({ status: myPresenceStatus })
-        .eq("room_id", roomId)
-        .eq("user_id", user.value.sub);
-
-      if (error) {
-        console.warn("[useRoom] Failed to update player status", error);
-      }
-    } catch (error) {
-      console.warn("[useRoom] Error updating player status", error);
-    }
-  }
-
   async function resetPlayerList() {
     players.value = [];
   }
@@ -202,9 +184,6 @@ export function useRoom() {
     gameChannel.value?.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
         await trackMyPresence();
-        if (initialStatus) {
-          await trackMyStatus(initialStatus, roomId);
-        }
       }
     });
   }
@@ -455,7 +434,6 @@ export function useRoom() {
     deletePlayerFromRoomTable,
     markMemberInactive,
     trackMyPresence,
-    trackMyStatus,
     setupBroadcastListeners,
     loadInitialHandCards,
     leaveRoomRealtime,
