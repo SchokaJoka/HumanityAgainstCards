@@ -1,10 +1,10 @@
 <script setup lang="ts">
 const props = withDefaults(
     defineProps<{
-        mode: "classic" | "extended" | "creative";
+        mode: "classic" | "creative";
         title: string;
         description: string;
-        selectedMode: "classic" | "extended" | "creative";
+        selectedMode: "classic" | "creative";
         canSelect: boolean;
         collections: Array<{ id: string; name: string }>;
         selectedCollectionIds: string[];
@@ -16,7 +16,7 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
-    select: [mode: "classic" | "extended" | "creative"];
+    select: [mode: "classic" | "creative"];
     selectCollection: [collectionId: string];
 }>();
 

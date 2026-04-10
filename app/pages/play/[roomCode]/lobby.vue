@@ -38,7 +38,7 @@ const gameChannel = useState<RealtimeChannel | null>("gameChannel", () => null);
 
 const collections = ref<any[]>([]);
 const selectedCollectionIds = useState<string[]>('selectedCollectionIds', () => []);
-const selectedGameMode = useState<"classic" | "extended" | "creative">(
+const selectedGameMode = useState<"classic" | "creative">(
   "selectedGameMode",
   () => "classic",
 );
@@ -140,7 +140,7 @@ async function startGame() {
   }
 }
 
-function setLobbySettings(newVal: "classic" | "extended" | "creative") {
+function setLobbySettings(newVal: "classic" | "creative") {
   selectedGameMode.value = newVal;
 
   gameChannel.value?.send({

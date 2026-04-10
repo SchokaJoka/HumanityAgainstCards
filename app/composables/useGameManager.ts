@@ -49,7 +49,7 @@ export function useGameManager() {
     roomCode: string,
     dev2gaps: boolean,
     collectionIds: string[] | string | null = null,
-    mode: "classic" | "extended" | "creative",
+    mode: "classic" | "creative",
   ): Promise<boolean> {
     if (!gameChannel.value || players.value.length < 2 || !isGameMaster.value) {
       if (players.value.length < 2)

@@ -28,7 +28,7 @@ export function useRoom() {
     () => [],
   );
 
-  const selectedGameMode = useState<"classic" | "extended" | "creative">(
+  const selectedGameMode = useState<"classic" | "creative">(
     "selectedGameMode",
     () => "classic",
   );

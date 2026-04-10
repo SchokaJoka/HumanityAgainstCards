@@ -88,7 +88,6 @@ Deno.serve(async (req: Request) => {
       let poolIndex = 0;
 
       for (const m of members) {
-        // TODO: extended mode logic needs 1 less card for every player.
         for (let k = 0; k < cardsPerPlayer; k++) {
           if (poolIndex >= whitePool.length) break;
           handInserts.push({

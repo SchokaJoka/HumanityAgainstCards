@@ -78,7 +78,7 @@ const getCardStyle = (item: CreativeInputItem, index: number) => {
     offsetFromCenter === 0 ? 50 : 50 - Math.abs(offsetFromCenter);
   const translateX = offsetFromCenter * spacing;
   const rotationDeg = offsetFromCenter * 10;
-  const translateY = isSelected(item) ? "-60px" : "0px";
+  const translateY = "0px";
 
   return {
     zIndex: String(zIndex),
@@ -180,7 +180,7 @@ onUnmounted(() => {
 
 <style scoped>
 .carousel-wrap {
-  @apply w-full h-full flex items-start justify-center pt-16 overflow-y-visible overflow-x-clip;
+  @apply w-full h-full flex items-start justify-center overflow-y-visible overflow-x-clip;
 }
 
 .carousel-container {

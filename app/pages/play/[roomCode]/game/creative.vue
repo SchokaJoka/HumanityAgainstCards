@@ -25,13 +25,7 @@ const GAP_TOKEN = "[[W1tnYXBdXQ==]]";
 type TextPart = {
     text: string;
     isGap: boolean;
-    gapIndex?: number;
 };
-
-type DraftRenderPart =
-    | { type: "text"; text: string }
-    | { type: "gap" }
-    | { type: "caret" };
 
 const { headerEl } = useHeaderHeight();
 const {
@@ -63,10 +57,6 @@ const {
 
 const { syncPlayerScoresForRoom } = usePlayerScores();
 
-const draftText = ref<string>("");
-const blackCardDraftError = ref<string>("");
-const draftEditor = ref<HTMLDivElement | null>(null);
-const draftCursor = ref<number>(0);
 const isSubmittingBlackCard = ref<boolean>(false);
 
 const czarId = computed(() => {
@@ -75,7 +65,6 @@ const czarId = computed(() => {
 });
 
 const isCzar = computed(() => !!playerId.value && playerId.value === czarId.value);
-const createEditorVisible = computed(() => isCzar.value && roundStatus.value === "round_start" && !blackCard.value);
 
 const numberOfCardsToPlay = computed(() => {
     const rawCount = Number((blackCard.value as any)?.number_of_gaps ?? 1);
@@ -90,13 +79,11 @@ const getTextParts = (text: string): TextPart[] => {
 
     const textParts = text.split(GAP_TOKEN);
     const parts: TextPart[] = [];
-    let gapIndex = 0;
 
     textParts.forEach((part, index) => {
         parts.push({ text: part, isGap: false });
         if (index < textParts.length - 1) {
-            parts.push({ text: "", isGap: true, gapIndex });
-            gapIndex += 1;
+            parts.push({ text: "", isGap: true });
         }
     });
 
@@ -104,76 +91,6 @@ const getTextParts = (text: string): TextPart[] => {
 };
 
 const blackCardTextParts = computed(() => getTextParts(blackCard.value?.text || ""));
-const clampDraftCursor = (value: number) => Math.min(Math.max(0, value), draftText.value.length);
-
-const setDraftCursor = (value: number) => {
-    draftCursor.value = clampDraftCursor(value);
-};
-
-const replaceDraftRange = (start: number, end: number, replacement: string) => {
-    const nextStart = clampDraftCursor(start);
-    const nextEnd = clampDraftCursor(Math.max(start, end));
-    draftText.value = `${draftText.value.slice(0, nextStart)}${replacement}${draftText.value.slice(nextEnd)}`;
-    draftCursor.value = nextStart + replacement.length;
-};
-
-const draftEditorParts = computed(() => {
-    const parts: DraftRenderPart[] = [];
-    const text = draftText.value;
-    const cursor = clampDraftCursor(draftCursor.value);
-    let index = 0;
-
-    while (index < text.length) {
-        if (text.startsWith(GAP_TOKEN, index)) {
-            if (cursor === index) parts.push({ type: "caret" });
-            parts.push({ type: "gap" });
-            index += GAP_TOKEN.length;
-            continue;
-        }
-
-        const nextGapIndex = text.indexOf(GAP_TOKEN, index);
-        const segmentEnd = nextGapIndex === -1 ? text.length : nextGapIndex;
-        const segment = text.slice(index, segmentEnd);
-
-        if (cursor === index) {
-            parts.push({ type: "caret" });
-        }
-
-        if (cursor > index && cursor < segmentEnd) {
-            const offset = cursor - index;
-            const before = segment.slice(0, offset);
-            const after = segment.slice(offset);
-
-            if (before) parts.push({ type: "text", text: before });
-            parts.push({ type: "caret" });
-            if (after) parts.push({ type: "text", text: after });
-        } else if (segment) {
-            parts.push({ type: "text", text: segment });
-        }
-
-        index = segmentEnd;
-    }
-
-    if (cursor === text.length) parts.push({ type: "caret" });
-
-    return parts;
-});
-
-const focusDraftEditor = async () => {
-    await nextTick();
-    draftEditor.value?.focus();
-};
-
-watch(createEditorVisible, async (visible) => {
-    if (visible) {
-        setDraftCursor(draftText.value.length);
-        await focusDraftEditor();
-    }
-});
-
-watch(draftText, () => {
-    setDraftCursor(draftCursor.value);
-});
 
 watch([playerId, gameMasterId], ([nextPlayerId, nextGameMasterId]) => {
     isGameMaster.value = !!nextPlayerId && nextGameMasterId === nextPlayerId;
@@ -241,6 +158,10 @@ const selectedJudgingCardIds = computed(() => {
     return judgingCarouselItems.value.filter((item) => String(item.submission.user_id) === selectedId).map((item) => item.id);
 });
 
+const filledCardsCount = computed(() => {
+    return myChosenWhiteCards.value.filter((card: string) => card.trim().length > 0).length;
+});
+
 const creativeCarouselItems = computed(() => {
     const count = numberOfCardsToPlay.value;
     return Array.from({ length: count }, (_, index) => ({
@@ -269,149 +190,10 @@ const handleCreativeInputBlur = async () => {
     await trackMyStatus(myPresenceStatus.value, roomId.value);
 };
 
-const insertGap = async () => {
-    const start = draftCursor.value;
-    replaceDraftRange(start, start, GAP_TOKEN);
-    await focusDraftEditor();
-};
-
-const insertDraftCharacter = (character: string) => {
-    replaceDraftRange(draftCursor.value, draftCursor.value, character);
-};
-
-const moveDraftCursorLeft = () => {
-    if (draftCursor.value <= 0) return;
-    const beforeCursor = draftText.value.slice(0, draftCursor.value);
-    if (beforeCursor.endsWith(GAP_TOKEN)) {
-        setDraftCursor(draftCursor.value - GAP_TOKEN.length);
-        return;
-    }
-
-    setDraftCursor(draftCursor.value - 1);
-};
-
-const moveDraftCursorRight = () => {
-    if (draftCursor.value >= draftText.value.length) return;
-    const afterCursor = draftText.value.slice(draftCursor.value);
-    if (afterCursor.startsWith(GAP_TOKEN)) {
-        setDraftCursor(draftCursor.value + GAP_TOKEN.length);
-        return;
-    }
-
-    setDraftCursor(draftCursor.value + 1);
-};
-
-const deleteBeforeDraftCursor = () => {
-    if (draftCursor.value <= 0) return;
-    const beforeCursor = draftText.value.slice(0, draftCursor.value);
-    if (beforeCursor.endsWith(GAP_TOKEN)) {
-        const nextCursor = draftCursor.value - GAP_TOKEN.length;
-        replaceDraftRange(nextCursor, draftCursor.value, "");
-        return;
-    }
-
-    const nextCursor = draftCursor.value - 1;
-    replaceDraftRange(nextCursor, draftCursor.value, "");
-};
-
-const deleteAfterDraftCursor = () => {
-    if (draftCursor.value >= draftText.value.length) return;
-    const afterCursor = draftText.value.slice(draftCursor.value);
-    if (afterCursor.startsWith(GAP_TOKEN)) {
-        replaceDraftRange(draftCursor.value, draftCursor.value + GAP_TOKEN.length, "");
-        return;
-    }
-
-    replaceDraftRange(draftCursor.value, draftCursor.value + 1, "");
-};
-
-const handleDraftPaste = async (event: ClipboardEvent) => {
-    event.preventDefault();
-    const pastedText = event.clipboardData?.getData("text/plain") ?? "";
-    if (!pastedText) return;
-
-    replaceDraftRange(draftCursor.value, draftCursor.value, pastedText);
-    await focusDraftEditor();
-};
-
-const handleDraftPointerDown = async () => {
-    await focusDraftEditor();
-    setDraftCursor(draftText.value.length);
-};
-
-const handleDraftKeydown = async (event: KeyboardEvent) => {
-    if (event.key === "Tab") {
-        event.preventDefault();
-        await insertGap();
-        return;
-    }
-
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "g") {
-        event.preventDefault();
-        await insertGap();
-        return;
-    }
-
-    if (event.key === "Backspace") {
-        event.preventDefault();
-        deleteBeforeDraftCursor();
-        return;
-    }
-
-    if (event.key === "Delete") {
-        event.preventDefault();
-        deleteAfterDraftCursor();
-        return;
-    }
-
-    if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        moveDraftCursorLeft();
-        return;
-    }
-
-    if (event.key === "ArrowRight") {
-        event.preventDefault();
-        moveDraftCursorRight();
-        return;
-    }
-
-    if (event.key === "Home") {
-        event.preventDefault();
-        setDraftCursor(0);
-        return;
-    }
-
-    if (event.key === "End") {
-        event.preventDefault();
-        setDraftCursor(draftText.value.length);
-        return;
-    }
-
-    if (event.key === "Enter") {
-        event.preventDefault();
-        insertDraftCharacter("\n");
-        return;
-    }
-
-    if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
-        event.preventDefault();
-        insertDraftCharacter(event.key);
-    }
-};
-
-const buildBlackCardText = () => draftText.value;
-const blackCardGapCount = computed(() => draftText.value.split(GAP_TOKEN).length - 1);
-
 async function submitBlackCard(text: string, number_of_gaps: number) {
     if (!isCzar.value || !roomId.value || isSubmittingBlackCard.value) return;
 
-    if (!text.trim()) {
-        blackCardDraftError.value = "Black card cannot be empty.";
-        return;
-    }
-
-    blackCardDraftError.value = "";
+    if (!text.trim()) return;
     const cardPayload = {
         text,
         number_of_gaps: number_of_gaps,
@@ -429,7 +211,6 @@ async function submitBlackCard(text: string, number_of_gaps: number) {
         });
 
         if (error) {
-            blackCardDraftError.value = "Could not submit black card. Please try again.";
             console.error("Error saving black card:", error);
             return;
         }
@@ -514,8 +295,6 @@ async function startNextRound() {
 
     isWhiteCardsSubmitted.value = false;
     myChosenWhiteCards.value = [];
-    draftText.value = "";
-    draftCursor.value = 0;
     selectedPlayerSubmission.value = null;
 }
 
@@ -657,11 +436,6 @@ const roundStatusMessage = computed(() => {
             return "";
     }
 });
-
-const getWhiteCardTextAtGap = (gapIndex?: number) => {
-    if (typeof gapIndex !== "number") return null;
-    return myChosenWhiteCards.value[gapIndex] || null;
-};
 </script>
 
 <template>
@@ -703,8 +477,8 @@ const getWhiteCardTextAtGap = (gapIndex?: number) => {
             <TransitionGroup name="fade">
 
                 <!-- Black Card -->
-                <div v-if="blackCard" class="rounded-xl bg-black p-6 text-normal font-bold text-white z-10">
-                    <div class="w-48 h-56 overflow-y-scroll overflow-x-visible">
+                <div v-if="blackCard" class="rounded-xl bg-black text-normal font-bold text-white">
+                    <div class="w-52 h-64 overflow-y-scroll overflow-x-visible p-4">
                         <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
                             :class="part.isGap ? 'm-1 px-2 py-1 bg-white text-black rounded-md cursor-pointer' : ''">
                             {{ part.isGap ? `___` : part.text }}
@@ -727,7 +501,7 @@ const getWhiteCardTextAtGap = (gapIndex?: number) => {
                 </div>
 
                 <!-- Czar Judging Carousel -->
-                <div v-if="roundStatus === 'round_submitted'" class="w-full h-full overflow-y-visible z-10">
+                <div v-if="roundStatus === 'round_submitted'" class="w-full h-full overflow-y-visible">
                     <MyCarousel :items="judgingCarouselItems" :lookup-cards="judgingLookupCards"
                         :selected-ids="selectedJudgingCardIds" selected-class="selected-judging"
                         @select-item="pickWinner" />
@@ -759,7 +533,12 @@ const getWhiteCardTextAtGap = (gapIndex?: number) => {
                 <Button v-if="roundStatus === 'round_start' && !isCzar && !isWhiteCardsSubmitted" @click="submitCards"
                     :disabled="isSubmittingWhiteCards || !canSubmitWhiteCards" variant="primary" size="md"
                     class="rounded-xl" key="submit-cards">
-                    {{ isSubmittingWhiteCards ? 'Submitting...' : 'Submit' }}
+                    {{ 
+                        isSubmittingWhiteCards 
+                            ? 'Submitting...' 
+                            : filledCardsCount !== numberOfCardsToPlay 
+                                ? `${filledCardsCount} / ${numberOfCardsToPlay} Cards `
+                                : 'Submit Cards' }}
                 </Button>
                 <Button v-else-if="roundStatus === 'round_submitted' && isCzar"
                     @click="submitWinner(selectedPlayerSubmission)"
@@ -795,56 +574,5 @@ const getWhiteCardTextAtGap = (gapIndex?: number) => {
     border-color: rgb(248 113 113);
     background-color: rgb(254 242 242);
     box-shadow: 0 0 0 2px rgb(254 202 202);
-}
-
-.preview>div {
-    max-width: 100%;
-    word-break: break-word;
-}
-
-.draft-editor {
-    font: inherit;
-    line-height: inherit;
-    scrollbar-gutter: stable;
-    cursor: text;
-    outline: none;
-}
-
-.draft-gap-token {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.08em 0.34em;
-    margin: 0 0.25em;
-    min-width: 2.2em;
-    border-radius: 0.45em;
-    background: rgb(255 255 255 / 0.96);
-    color: rgb(17 24 39);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.28);
-    position: relative;
-    white-space: pre;
-}
-
-.draft-caret {
-    display: inline-block;
-    width: 0.5px;
-    height: 1em;
-    margin: 0 1px;
-    vertical-align: -0.1em;
-    background: rgb(255 255 255);
-    animation: draft-caret-blink 1s steps(1) infinite;
-}
-
-@keyframes draft-caret-blink {
-
-    0%,
-    49% {
-        opacity: 1;
-    }
-
-    50%,
-    100% {
-        opacity: 0;
-    }
 }
 </style>
