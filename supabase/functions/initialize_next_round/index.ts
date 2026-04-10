@@ -81,7 +81,7 @@ Deno.serve(async (req: Request) => {
             ...(room.metadata ?? {}),
             black_card: null,
             czar_id: newCzarId,
-            round_status: "round_start",
+            round_status: "round_create_black_card",
             round: round + 1,
             current_winner: null,
             submitted_white_cards: [],
@@ -99,9 +99,9 @@ Deno.serve(async (req: Request) => {
     // 2. Ensure remaining_black_cards has cards; if empty, refill from set(s)
     const { count: blackRemainingCount, error: blackRemainingCountErr } =
       await supabase
-        .from("remaining_black_cards")
-        .select("card_id", { count: "exact" })
-        .eq("room_id", room_id);
+      .from("remaining_black_cards")
+      .select("card_id", { count: "exact" })
+      .eq("room_id", room_id);
     if (blackRemainingCountErr) throw blackRemainingCountErr;
 
     if ((blackRemainingCount ?? 0) < 1) {

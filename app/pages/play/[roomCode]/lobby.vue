@@ -267,7 +267,7 @@ async function shareRoomCode() {
 
 // DEV DEBUGGING
 // ============================================================
-const dev2gaps = ref(false);
+const dev2gaps = ref(true);
 // ============================================================
 </script>
 
