@@ -63,7 +63,7 @@ const emitSelect = (item: any) => {
 const getCardStyle = (item: any, index: number) => {
   const offsetFromCenter = index - current.value;
   const zIndex =
-    offsetFromCenter === 0 ? 50 : 50 - Math.abs(offsetFromCenter);
+    offsetFromCenter === 0 ? 30 : Math.max(1, 30 - Math.abs(offsetFromCenter));
   const translateX = offsetFromCenter * spacing;
   const rotationDeg = offsetFromCenter * 10;
   const translateY = "0px";

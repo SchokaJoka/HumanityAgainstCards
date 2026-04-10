@@ -111,7 +111,7 @@ const currentForRow = (rowIndex: number) => {
 const getCardStyle = (index: number, rowIndex = 0) => {
   const cur = currentForRow(rowIndex);
   const offsetFromCenter = index - cur;
-  const z = offsetFromCenter === 0 ? 50 : 50 - Math.abs(offsetFromCenter);
+  const z = offsetFromCenter === 0 ? 30 : Math.max(1, 30 - Math.abs(offsetFromCenter));
   const tx = offsetFromCenter * spacing;
   const rot = offsetFromCenter * 8;
   return {

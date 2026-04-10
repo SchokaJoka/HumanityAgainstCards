@@ -97,30 +97,6 @@ watch([playerId, gameMasterId], ([nextPlayerId, nextGameMasterId]) => {
     isGameMaster.value = !!nextPlayerId && nextGameMasterId === nextPlayerId;
 });
 
-const myPresenceStatus = computed(() => {
-    if (!gameStarted.value || roundStatus.value === "lobby") return "waiting";
-
-    if (roundStatus.value === "round_start") {
-        if (isCzar.value) return "czar";
-        return isWhiteCardsSubmitted.value ? "submitted" : "choosing";
-    }
-
-    if (roundStatus.value === "round_submitted") {
-        return isCzar.value ? "judging" : "waiting";
-    }
-
-    if (roundStatus.value === "round_end") {
-        if (winnerUserId.value && winnerUserId.value === playerId.value) return "winner";
-        return "round end";
-    }
-
-    return "playing";
-});
-
-watch(myPresenceStatus, async () => {
-    await trackMyStatus(myPresenceStatus.value, roomId.value);
-});
-
 watch(
     numberOfCardsToPlay,
     (count) => {
@@ -181,14 +157,6 @@ const updateCreativeCardText = (payload: { index: number; text: string }) => {
 
     next[payload.index] = payload.text;
     myChosenWhiteCards.value = next;
-};
-
-const handleCreativeInputFocus = async () => {
-    await trackMyStatus("writing", roomId.value);
-};
-
-const handleCreativeInputBlur = async () => {
-    await trackMyStatus(myPresenceStatus.value, roomId.value);
 };
 
 async function submitBlackCard(text: string, number_of_gaps: number) {

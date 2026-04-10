@@ -25,50 +25,48 @@ export function useGameManager() {
 
   const gameStarted = useState<boolean>("gameStarted", () => false);
 
-  const myPresenceStatus = useState<string>("myPresenceStatus", () => "");
   
   const isCzar = useState<boolean>("isCzar", () => false);
-
+  
   const myChosenWhiteCards = useState<any[]>("myChosenWhiteCards", () => []);
-
+  
   const isStartingGame = ref(false);
   const isStartingNextRound = ref(false);
-
+  
   const errorMessage = useState<string | null>("gameErrorMessage", () => null);
-
+  
   const roomId = useState<string | null>("gameManagerRoomId", () => null);
   const playerId = useState<string | null>("gameManagerPlayerId", () => null);
-
-  watch([gameStarted, roundStatus, isCzar, isWhiteCardsSubmitted, winnerUserId, playerId], () => {
-    if (!gameStarted.value || roundStatus.value === "lobby") {
-      myPresenceStatus.value = "waiting";
-      return;
+  
+  const myPresenceStatus = computed(() => {
+    if (!gameStarted.value) {
+      return "waiting";
     }
-
-    if (roundStatus.value === "round_start") {
-      if (isCzar.value) {
-        myPresenceStatus.value = "czar";
-        return;
-      }
-      myPresenceStatus.value = isWhiteCardsSubmitted.value ? "submitted" : "choosing";
-      return;
+    
+    switch (roundStatus.value) {
+      case "lobby":
+        return "waiting";
+        break;
+      
+      case "round_start":
+        if (isCzar.value) {
+          return "czar";
+        } else {
+          return isWhiteCardsSubmitted.value ? "submitted" : "choosing";
+        }
+        break;
+      
+      case "round_submitted":
+        return isCzar.value ? "judging" : "waiting";
+        break;
+      
+      case "round_end":
+        return winnerUserId.value && winnerUserId.value === playerId.value ? "winner" : "round_end";
+        break;
+      
+      default:
+        return "error_unknown_status";
     }
-
-    if (roundStatus.value === "round_submitted") {
-      myPresenceStatus.value = isCzar.value ? "judging" : "waiting";
-      return;
-    }
-
-    if (roundStatus.value === "round_end") {
-      if (winnerUserId.value && winnerUserId.value === playerId.value) {
-        myPresenceStatus.value = "winner";
-        return;
-      }
-      myPresenceStatus.value = "round end";
-      return;
-    }
-
-    myPresenceStatus.value = "playing";
   });
 
   async function initializeGame(
@@ -237,6 +235,11 @@ export function useGameManager() {
       default:
         console.error("Unknown round status:", currentMetaData.round_status);
     }
+
+    if(roomId.value) {
+      console.log('[TRACKMYSTATUS]')
+      await trackMyStatus(myPresenceStatus.value, roomId.value)
+    }
   }
 
   async function handleRoundStart(currentMetaData: any) {
@@ -259,7 +262,6 @@ export function useGameManager() {
       return;
     }
     isWhiteCardsSubmitted.value = data?.status === "submitted";
-    trackMyStatus(myPresenceStatus.value, roomId.value)
   }
 
   async function handleRoundSubmitted(currentMetaData: any) {
@@ -308,9 +310,8 @@ export function useGameManager() {
   }
 
   async function trackMyStatus(myPresenceStatus: string, roomId: string) {
-    if (!user.value || !user.value.sub) return;
+    if (!user.value) return;
 
-    try {
       const { error } = await supabase
         .from("room_members")
         .update({ status: myPresenceStatus })
@@ -318,11 +319,8 @@ export function useGameManager() {
         .eq("user_id", user.value.sub);
 
       if (error) {
-        console.warn("[useRoom] Failed to update player status", error);
+        console.error("[useRoom] Failed to update player status", error);
       }
-    } catch (error) {
-      console.warn("[useRoom] Error updating player status", error);
-    }
   }
 
   return {
