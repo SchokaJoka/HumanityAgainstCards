@@ -116,7 +116,7 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", user_id)
         .in("card_id", submittedCardIds);
       if (deleteError) throw deleteError;
-      
+
       // --- Step 4: Append submitted cards to room metadata played/submitted lists (deduplicated)
       const { data: roomRow, error: roomRowErr } = await supabase
         .from("rooms")
@@ -125,11 +125,17 @@ Deno.serve(async (req: Request) => {
         .single();
       if (roomRowErr) throw roomRowErr;
 
-      const existingSubmitted = (roomRow?.metadata?.submitted_white_cards as string[]) ?? [];
-      const existingPlayed = (roomRow?.metadata?.played_white_cards as string[]) ?? [];
+      const existingSubmitted =
+        (roomRow?.metadata?.submitted_white_cards as string[]) ?? [];
+      const existingPlayed =
+        (roomRow?.metadata?.played_white_cards as string[]) ?? [];
 
-      const nextSubmitted = Array.from(new Set(existingSubmitted.concat(submittedCardIds)));
-      const nextPlayed = Array.from(new Set(existingPlayed.concat(submittedCardIds)));
+      const nextSubmitted = Array.from(
+        new Set(existingSubmitted.concat(submittedCardIds)),
+      );
+      const nextPlayed = Array.from(
+        new Set(existingPlayed.concat(submittedCardIds)),
+      );
 
       const { error: roomUpdateErr } = await supabase
         .from("rooms")

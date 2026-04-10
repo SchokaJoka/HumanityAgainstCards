@@ -20,7 +20,6 @@ export function useRoom() {
   const { handleGameStateChanges } = useGameManager();
 
   const isLeaving = ref<boolean>(false);
-  const gameStarted = useState<boolean>("gameStarted", () => false);
   const players = useState<any[]>("players", () => []);
   const playerHandCards = useState<HandCards[]>("playerHandCards", () => []);
   const collectionCards = useState<CollectionCards[]>(
@@ -364,12 +363,12 @@ export function useRoom() {
         }
       },
     );
-    // ...existing code...
 
     // game_start
     gameChannel.value.on("broadcast", { event: "game_start" }, () => {
       console.log("[BROADCAST] game_start");
-      /*       gameStarted.value = true; */
+      /*       gameStarted.value = true;
+       */
     });
 
     // round_submitted (fallback refresh)

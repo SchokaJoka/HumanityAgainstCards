@@ -84,6 +84,8 @@
 const supabase = useSupabaseClient();
 const user = useSupabaseUser();
 const roomCodeInput = ref<string>("");
+const { getRoomIdByCode, getRoomMetadata } = useRoom();
+
 
 // Start in editing mode if no user exists so they can enter a name
 const editingGuestName = ref(!user.value);
@@ -134,20 +136,26 @@ const saveGuestName = async () => {
   editingGuestName.value = false;
 };
 
-const { getRoomIdByCode } = useRoom();
 
 const joinRoom = async () => {
-  if(user.value) {
+  if (user.value) {
     const roomCode = roomCodeInput.value.trim().toUpperCase();
     errorMessage.value = "";
     if (!roomCode) return;
-  
+
     const roomId = await getRoomIdByCode(roomCode);
     if (!roomId) {
       errorMessage.value = "Room does not exist.";
       return;
     }
-  
+    /* if gameStarted = true for this room, user cant join room "game has already started*/
+    const roomMeta = await getRoomMetadata(roomId);
+    const roundStatus = roomMeta?.metadata?.round_status ?? null;
+    if (roundStatus && roundStatus !== "lobby") {
+      errorMessage.value = "Game has already started. You cannot join this room.";
+      return;
+    }
+
     await navigateTo(`/play/${roomCode}/lobby`);
   } else {
     errorMessage.value = "You must set a name before joining a room.";
