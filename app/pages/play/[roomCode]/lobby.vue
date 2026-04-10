@@ -47,6 +47,7 @@ const selectedGameMode = useState<"classic" | "creative">(
 
 // COMPOSABLES
 // ============================================================
+const { headerEl } = useHeaderHeight();
 const {
   // Variables
   isLeaving,
@@ -274,9 +275,9 @@ const dev2gaps = ref(true);
 <template>
   <main class="w-full flex items-center justify-center">
     <!-- Header -->
-    <header class="fixed top-0 w-full flex items-center justify-start p-4 bg-white z-40">
+    <header ref="headerEl" class="fixed top-0 w-full flex items-center justify-start p-4 bg-white z-40">
       <div class="w-full flex flex-row gap-4 items-center">
-        <div class="cursor-pointer" @click="roomId && deletePlayerFromRoomTable(roomId, playerId)">
+        <div class="cursor-pointer" @click="roomId ? deletePlayerFromRoomTable(roomId, playerId) : navigateTo('/')">
           <svg xmlns="http://www.w3.org/2000/svg" width="38" height="33" viewBox="0 0 38 33" fill="none">
             <path
               d="M37 31.8505C32.596 26.4042 28.6852 23.314 25.2676 22.5797C21.85 21.8454 18.5962 21.7345 15.5062 22.2469V32L1 16.0852L15.5062 1.00003V10.2699C21.22 10.3155 26.0776 12.3922 30.079 16.5C34.0798 20.6078 36.3868 25.7247 37 31.8505Z"
@@ -292,8 +293,7 @@ const dev2gaps = ref(true);
 
     <!-- Main Content -->
     <main
-      class="relative flex flex-col items-center justify-start min-h-[calc(1.5*100svh)] w-full max-w-2xl px-8 pb-8 pt-4 gap-4">
-      <div class="h-[33px] w-full mb-4"></div>
+      class="relative flex flex-col items-center justify-start w-full max-w-2xl px-8 pt-4 gap-4 mt-[var(--sets-header-h)]">
       <!-- Game Mode Selection -->
       <div class="flex flex-col gap-2 w-full">
         <GameModeSelectionCard v-for="mode in gameModes" :key="mode.value" :mode="mode.value" :title="mode.title"

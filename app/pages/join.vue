@@ -16,14 +16,14 @@
         </div>
 
         <!-- Guest Name Input -->
-        <div v-if="user" class="flex flex-col gap-2 w-full">
+        <div class="flex flex-col gap-2 w-full">
           <div v-if="editingGuestName"
             class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-neutral-50 rounded-lg border-[3px] border-black text-3xl font-normal">
             <div class="w-full flex flex-row items-center justify-between gap-1">
               <input v-model="guestNameEdit" type="text"
                 class="w-full py-4 pl-4 bg-transparent outline-none border-0 focus:ring-0" @blur="saveGuestName"
                 @keyup.enter="saveGuestName" ref="guestNameInput" />
-              <div class="flex items-center px-4 h-full bg-neutral-400">
+              <div class="flex items-center px-5 h-full bg-neutral-200">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="black">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -35,10 +35,13 @@
             class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-neutral-50 rounded-lg border-[3px] border-black">
             <button @click="startEditGuestName"
               class="w-full flex flex-row items-center justify-between gap-1 cursor-pointer hover:text-grey-500">
-              <span class="py-4 pl-4 text-3xl font-normal">
-                {{ user?.user_metadata?.full_name || "Guest" }}
+              <span v-if="user?.user_metadata?.full_name" class="py-4 pl-4 text-3xl font-normal">
+                {{ user?.user_metadata?.full_name }}
               </span>
-              <div class="flex items-center px-5 h-full bg-neutral-200 h-full">
+              <span v-else class="py-4 pl-4 text-3xl text-black/50 font-normal">
+                {{ "Name" }}
+              </span>
+              <div class="flex items-center px-5 h-full bg-neutral-200">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="black">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -82,11 +85,13 @@ const supabase = useSupabaseClient();
 const user = useSupabaseUser();
 const roomCodeInput = ref<string>("");
 
-const editingGuestName = ref(false);
+// Start in editing mode if no user exists so they can enter a name
+const editingGuestName = ref(!user.value);
 const guestNameEdit = ref("");
 const guestNameInput = ref<HTMLInputElement | null>(null);
 
 const errorMessage = ref<string>("");
+
 const startEditGuestName = () => {
   guestNameEdit.value = user.value?.user_metadata?.full_name || "";
   editingGuestName.value = true;
@@ -98,17 +103,32 @@ const startEditGuestName = () => {
 const saveGuestName = async () => {
   if (!guestNameEdit.value || guestNameEdit.value.length < 3) {
     editingGuestName.value = false;
+    errorMessage.value = "Name must be at least 3 characters.";
     return;
   }
 
-  const { error } = await supabase.auth.updateUser({
-    data: {
-      full_name: guestNameEdit.value,
-    },
-  });
+  if (user.value) {
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        full_name: guestNameEdit.value,
+      },
+    });
 
-  if (!error) {
-    await supabase.auth.refreshSession();
+    if (!error) {
+      await supabase.auth.refreshSession();
+    }
+  } else {
+    const { error } = await supabase.auth.signInAnonymously({
+      options: {
+        data: {
+          full_name: guestNameEdit.value,
+        },
+      },
+    });
+
+    if (error) {
+      errorMessage.value = "Failed to save guest name.";
+    }
   }
 
   editingGuestName.value = false;
@@ -117,16 +137,20 @@ const saveGuestName = async () => {
 const { getRoomIdByCode } = useRoom();
 
 const joinRoom = async () => {
-  const roomCode = roomCodeInput.value.trim().toUpperCase();
-  errorMessage.value = "";
-  if (!roomCode) return;
-
-  const roomId = await getRoomIdByCode(roomCode);
-  if (!roomId) {
-    errorMessage.value = "Room does not exist.";
-    return;
+  if(user.value) {
+    const roomCode = roomCodeInput.value.trim().toUpperCase();
+    errorMessage.value = "";
+    if (!roomCode) return;
+  
+    const roomId = await getRoomIdByCode(roomCode);
+    if (!roomId) {
+      errorMessage.value = "Room does not exist.";
+      return;
+    }
+  
+    await navigateTo(`/play/${roomCode}/lobby`);
+  } else {
+    errorMessage.value = "You must set a name before joining a room.";
   }
-
-  await navigateTo(`/play/${roomCode}/lobby`);
 };
 </script>

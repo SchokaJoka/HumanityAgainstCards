@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import myCarouselJudging from "~/components/myCarouselJudging.vue";
 
 // VARIABLES
 // ============================================================
@@ -523,9 +524,16 @@ const dev2gaps = ref(false);
 </script>
 
 <template>
-  <main class="flex flex-col items-center w-full min-h-dvh bg-neutral-300">
-    <header ref="headerEl"
-      class="fixed pt-[env(safe-area-inset-top),0px)] w-full flex flex-col p-4 gap-2 z-40 bg-neutral-300">
+  <main class="flex flex-col items-center w-full h-dvh overflow-w-hidden overflow-y-hidden transition-color" :class="roundStatus === 'round_end'
+    ? 'bg-sky-300 text-black'
+    : isCzar
+      ? 'bg-black text-white'
+      : 'bg-white text-black'">
+    <header ref="headerEl" class="fixed pt-[env(safe-area-inset-top),0px)] w-full flex flex-col p-4 gap-2 z-40" :class="roundStatus === 'round_end'
+      ? 'bg-sky-300 text-black'
+      : isCzar
+        ? 'bg-black text-white'
+        : 'bg-white text-black'">
       <div class="w-full flex flex-row items-stretch justify-between gap-2">
         <div class="flex flex-row w-full items-center justify-start overflow-x-auto gap-2">
           <div v-if="roundStatus !== 'round_end'" v-for="player in players" :key="player.user_id"
@@ -534,7 +542,7 @@ const dev2gaps = ref(false);
               ? 'border-yellow-300'
               : player.status === 'submitted'
                 ? 'border-green-300'
-                : 'border-black'
+                : 'border-current'
               ">
               <img src="https://placehold.co/40" alt="Player avatar" class="size-10 rounded-full object-cover" />
 
@@ -543,13 +551,15 @@ const dev2gaps = ref(false);
               {{ player.user_id === playerId ? 'You' : player.user_name }}
             </span>
           </div>
-          <div v-if="roundStatus === 'round_end' && winnerPlayer" class="flex flex-col items-center gap-1">
-            <div class="flex items-center justify-center size-12 rounded-full border-2 border-black transition-all">
-              <img src="https://placehold.co/40" alt="Player avatar" class="size-10 rounded-full object-cover" />
+          <div v-if="roundStatus === 'round_end' && winnerPlayer" class="flex flex-row w-full gap-2">
+            <div class="flex flex-col items-center gap-1">
+              <div class="flex items-center justify-center size-12 rounded-full border-2 border-black transition-all">
+                <img src="https://placehold.co/40" alt="Player avatar" class="size-10 rounded-full object-cover" />
+              </div>
             </div>
-          </div>
-          <div class="flex w-full items-center justify-center text-lg font-bold overflow-clip whitespace-nowrap">
-            {{ `${winnerUsername.toUpperCase()} won!` }}
+            <div class="flex w-full items-center justify-center text-lg font-bold overflow-clip whitespace-nowrap">
+              {{ `${winnerUsername.toUpperCase()} won!` }}
+            </div>
           </div>
         </div>
         <Button v-if="!isCzar || roundStatus !== 'round_end'" @click="deletePlayerFromRoomTable(roomId, playerId)"
@@ -568,140 +578,143 @@ const dev2gaps = ref(false);
         </div>
       </div>
     </header>
-
-    <!-- Game Section -->
-    <section name="game-section" v-if="gameStarted && roundStatus !== 'lobby' && roundStatus !== 'round_end'"
-      class="w-full mt-[var(--sets-header-h)] h-[calc(100dvh-var(--sets-header-h))] flex items-center gap-4 overflow-y-visible pt-1"
-      :class="isCzar ? 'flex-col-reverse justify-start' : 'flex-col justify-start'">
-      <TransitionGroup name="fade">
-        <!-- Black Card -->
-        <div v-if="blackCard"
-          class="rounded-xl w-52 h-64 bg-black p-4 text-normal font-bold text-white z-10 overflow-y-auto">
-          <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`" :class="part.isGap ? '' : ''"
-            @click="deleteWhiteCardAtGap(part.gapIndex)">
-            {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "___" : part.text }}
-          </span>
-        </div>
-
-        <!-- Player Hand -->
-        <div v-if="!isCzar && roundStatus === 'round_start' && isWhiteCardsSubmitted === false"
-          class="w-full overflow-visible z-20">
-          <MyCarousel :items="playerHandCards" :lookup-cards="collectionCards" :selected-ids="selectedHandCardIds"
-            @select-item="pickCard">
-          </MyCarousel>
-        </div>
-
-        <!-- Judging Area -->
-        <div v-if="roundStatus === 'round_submitted'" class="w-full h-full overflow-y-visible z-20">
-          <MyCarousel :items="judgingCards" :lookup-cards="collectionCards" :selected-ids="selectedJudgingCardIds"
-            selected-class="selected-judging" @select-item="pickWinner">
-          </MyCarousel>
-        </div>
-      </TransitionGroup>
-    </section>
-
-    <!-- Round End Section -->
-    <section name="round-end" v-if="gameStarted && roundStatus === 'round_end'"
-      class="w-full mt-[var(--sets-header-h)] h-[calc(100dvh-var(--sets-header-h))] flex flex-col justify-start items-center gap-4 p-4">
-
-      <!-- Winner Submission -->
-      <div class="w-full flex flex-row justify-around items-stretch gap-2 max-w-2xl">
-        <!-- Black Card -->
-        <div v-if="blackCard" class="bg-black h-64 w-full rounded-xl p-4 font-bold border-2 border-black">
-          <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
-            class="text-white w-full overflow-y-auto" :class="part.isGap ? '' : ''"
-            @click="deleteWhiteCardAtGap(part.gapIndex)">
-            {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "_____" : part.text }}
-          </span>
-        </div>
-        <!-- Winner White Cards -->
-        <div class="w-full min-h-full flex flex-col">
-          <div v-for="cardText, index in winnerCards"
-            class="bg-white p-4 pr-8 shadow-xl h-full relative rounded-t-xl border-black border-x-2 border-t-2" :class="[
-              index === winnerCards.length - 1 ? 'rounded-b-xl border-b-2' : '',
-              index === 0 ? 'pb-8' : '-mt-6 pb-16'
-            ]">
-            <span class="text-black font-bold">
-              {{collectionCards.find((c: any) => c.id === cardText)?.text || "Unknown card"}}
-            </span>
-            <div
-              class="absolute top-2 right-2 size-8 p-[0.1rem] flex items-center justify-center bg-white rounded-full text-xs font-bold">
-              <div class="bg-black size-full rounded-full flex items-center justify-center text-white font-bold">
-                {{ index + 1 || "error" }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Player Scores -->
-      <div class="w-full h-full flex flex-col max-w-2xl gap-4 p-4 overflow-y-auto">
-        <!-- Items -->
+    <TransitionGroup>
+      <!-- Game Section -->
+      <section name="game-section" v-if="gameStarted && roundStatus !== 'lobby' && roundStatus !== 'round_end'"
+        class="w-full mt-[var(--sets-header-h)] h-[calc(100dvh-var(--sets-header-h))] flex items-center gap-2 overflow-y-visible pb-4"
+        :class="isCzar ? 'flex-col-reverse justify-start' : 'flex-col justify-start'">
         <TransitionGroup name="fade">
-          <div v-for="(player, index) in displayedPlayers" :key="player.user_id" :class="[
-            'w-full flex flex-row justify-between items-stretch border-[3px] ',
-            index === displayedPlayers.length - 1 ? 'bg-black text-white border-white' : 'bg-white text-black border-black'
-          ]">
-            <div class="w-full flex flex-row items-center">
-              <div class="text-2xl flex items-center h-full px-4"
-                :class="index === displayedPlayers.length - 1 ? 'bg-white text-black' : 'bg-black text-white'">
-                {{
-                  index === displayedPlayers.length - 1 ? "Last" : index + 1 + '.'
-                }}
-              </div>
-              <div class="flex flex-row w-full py-2 px-4 items-center justify-between">
-                <div class="flex flex-row items-center gap-2">
-                  <div class="border-2 rounded-full flex items-center justify-center text-white font-bold mb-1 size-12"
-                    :class="index === displayedPlayers.length - 1 ? 'border-white' : 'border-black'">
-                    <img class="rounded-full size-10" src="https://placehold.co/50x50" />
-                  </div>
-                  <div class="">
-                    {{ player.user_name }}
-                  </div>
-                </div>
-                <div class="bg-black rounded-full flex items-center justify-center text-white font-bold mb-1 size-10">
-                  <span>{{ getPlayerScore(player.user_id) }}</span>
-                </div>
-              </div>
-            </div>
+          <!-- Black Card -->
+          <div v-if="blackCard"
+            class="rounded-xl border-[3px] border-white w-52 h-64 bg-black p-4 text-normal font-bold text-white z-10 overflow-y-auto">
+            <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`" :class="part.isGap ? '' : ''"
+              @click="deleteWhiteCardAtGap(part.gapIndex)">
+              {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "___" : part.text }}
+            </span>
+          </div>
+
+          <!-- Player Hand -->
+          <div v-if="!isCzar && roundStatus === 'round_start' && isWhiteCardsSubmitted === false"
+            class="w-full overflow-visible z-20">
+            <MyCarousel :items="playerHandCards" :lookup-cards="collectionCards" :selected-ids="selectedHandCardIds"
+              @select-item="pickCard">
+            </MyCarousel>
+          </div>
+
+          <!-- Judging Area -->
+          <div v-if="roundStatus === 'round_submitted'" class="w-full overflow-visible z-20">
+            <MyCarouselJudging :items="judgingCards" :lookup-cards="collectionCards"
+              :selected-ids="selectedJudgingCardIds" selected-class="selected-judging" @select-item="pickWinner" />
           </div>
         </TransitionGroup>
-      </div>
-    </section>
+      </section>
 
-    <!-- Action Buttons -->
-    <section name="action-buttons" v-if="gameStarted"
-      class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] w-full flex flex-row items-center justify-center transition-all z-40">
-      <transition name="fade" mode="out-in">
-        <Button v-if="roundStatus === 'round_start' && !isCzar && !isWhiteCardsSubmitted" @click="submitCards()"
-          :disabled="isSubmittingWhiteCards || myChosenWhiteCards.length !== numberOfCardsToPlay" variant="primary"
-          size="md" class="rounded-xl" key="submit-cards">
-          {{
-            isSubmittingWhiteCards
-              ? "Submitting..."
-              : myChosenWhiteCards.length === numberOfCardsToPlay
-                ? "Submit"
-                : `${myChosenWhiteCards.length} / ${numberOfCardsToPlay} Cards`
-          }}
-        </Button>
-        <Button v-else-if="roundStatus === 'round_submitted' && isCzar" @click="submitWinner(selectedPlayerSubmission)"
-          :disabled="isChoosingWinner" variant="primary" size="md" class="rounded-xl" key="choose-winner">
-          {{
-            isChoosingWinner
-              ? "Choosing..."
-              : "Choose"
-          }}
-        </Button>
-        <Button v-else-if="roundStatus === 'round_end' && isCzar" @click="initializeNextRound(roomId)"
-          :disabled="isStartingNextRound" variant="primary" size="md" class="rounded-xl" key="next-round">
-          {{
-            isStartingNextRound
-              ? "Loading..."
-              : "Next Round"
-          }}
-        </Button>
-      </transition>
-    </section>
+      <!-- Round End Section -->
+      <section name="round-end" v-if="gameStarted && roundStatus === 'round_end'"
+        class="w-full mt-[var(--sets-header-h)] h-[calc(100dvh-var(--sets-header-h))] flex flex-col justify-start items-center gap-4 p-4">
+
+        <!-- Winner Submission -->
+        <div class="w-full flex flex-row justify-around items-stretch gap-2 max-w-2xl">
+          <!-- Black Card -->
+          <div v-if="blackCard" class="bg-black h-64 w-full rounded-xl p-4 font-bold border-2 border-black z-10">
+            <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
+              class="text-white w-full overflow-y-auto" :class="part.isGap ? '' : ''"
+              @click="deleteWhiteCardAtGap(part.gapIndex)">
+              {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "_____" : part.text }}
+            </span>
+          </div>
+          <!-- Winner White Cards -->
+          <div class="w-full min-h-full flex flex-col">
+            <div v-for="cardText, index in winnerCards"
+              class="bg-white p-4 pr-8 shadow-xl h-full relative rounded-t-xl border-black border-x-2 border-t-2"
+              :class="[
+                index === winnerCards.length - 1 ? 'rounded-b-xl border-b-2' : '',
+                index === 0 ? 'pb-8' : '-mt-6 pb-16'
+              ]">
+              <span class="text-black font-bold">
+                {{collectionCards.find((c: any) => c.id === cardText)?.text || "Unknown card"}}
+              </span>
+              <div
+                class="absolute top-2 right-2 size-8 p-[0.1rem] flex items-center justify-center bg-white rounded-full text-xs font-bold">
+                <div class="bg-black size-full rounded-full flex items-center justify-center text-white font-bold">
+                  {{ index + 1 || "error" }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Player Scores -->
+        <div class="w-full h-full flex flex-col max-w-2xl gap-4 p-4 overflow-y-auto">
+          <!-- Items -->
+          <TransitionGroup name="fade">
+            <div v-for="(player, index) in displayedPlayers" :key="player.user_id" :class="[
+              'w-full flex flex-row justify-between items-stretch border-[3px] ',
+              index === displayedPlayers.length - 1 ? 'bg-black text-white border-white' : 'bg-white text-black border-black'
+            ]">
+              <div class="w-full flex flex-row items-center">
+                <div class="text-2xl flex items-center h-full px-4"
+                  :class="index === displayedPlayers.length - 1 ? 'bg-white text-black' : 'bg-black text-white'">
+                  {{
+                    index === displayedPlayers.length - 1 ? "Last" : index + 1 + '.'
+                  }}
+                </div>
+                <div class="flex flex-row w-full py-2 px-4 items-center justify-between">
+                  <div class="flex flex-row items-center gap-2">
+                    <div
+                      class="border-2 rounded-full flex items-center justify-center text-white font-bold mb-1 size-12"
+                      :class="index === displayedPlayers.length - 1 ? 'border-white' : 'border-black'">
+                      <img class="rounded-full size-10" src="https://placehold.co/50x50" />
+                    </div>
+                    <div class="">
+                      {{ player.user_name }}
+                    </div>
+                  </div>
+                  <div class="bg-black rounded-full flex items-center justify-center text-white font-bold mb-1 size-10">
+                    <span>{{ getPlayerScore(player.user_id) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </TransitionGroup>
+        </div>
+      </section>
+
+      <!-- Action Buttons -->
+      <section name="action-buttons" v-if="gameStarted"
+        class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] w-full flex flex-row items-center justify-center transition-all z-40">
+        <transition name="fade" mode="out-in">
+          <Button v-if="roundStatus === 'round_start' && !isCzar && !isWhiteCardsSubmitted" @click="submitCards()"
+            :disabled="isSubmittingWhiteCards || myChosenWhiteCards.length !== numberOfCardsToPlay" variant="primary"
+            size="md" class="rounded-xl" key="submit-cards">
+            {{
+              isSubmittingWhiteCards
+                ? "Submitting..."
+                : myChosenWhiteCards.length === numberOfCardsToPlay
+                  ? "Submit"
+                  : `${myChosenWhiteCards.length} / ${numberOfCardsToPlay} Cards`
+            }}
+          </Button>
+          <Button v-else-if="roundStatus === 'round_submitted' && isCzar"
+            @click="submitWinner(selectedPlayerSubmission)" :disabled="isChoosingWinner" variant="primary" size="md"
+            class="rounded-xl" key="choose-winner">
+            {{
+              isChoosingWinner
+                ? "Choosing..."
+                : "Choose"
+            }}
+          </Button>
+          <Button v-else-if="roundStatus === 'round_end' && isCzar" @click="initializeNextRound(roomId)"
+            :disabled="isStartingNextRound" variant="primary" size="md" class="rounded-xl" key="next-round">
+            {{
+              isStartingNextRound
+                ? "Loading..."
+                : "Next Round"
+            }}
+          </Button>
+        </transition>
+      </section>
+    </TransitionGroup>
   </main>
 </template>
 

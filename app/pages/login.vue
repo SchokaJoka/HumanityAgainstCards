@@ -1,6 +1,6 @@
 <template>
   <main class="w-full flex items-center justify-center">
-    <header ref="headerEl" class="fixed top-0 w-full flex flex-col items-start justify-start z-10">
+    <header ref="headerEl" class="fixed top-0 w-full flex flex-col items-start justify-start z-10 bg-white">
       <div class="flex flex-row items-center w-full gap-4 p-4">
         <div class="cursor-pointer" @click="navigateTo('/')">
           <svg xmlns="http://www.w3.org/2000/svg" width="38" height="33" viewBox="0 0 38 33" fill="none">
@@ -27,8 +27,9 @@
       </div>
     </header>
 
-    <section class="relative flex flex-col items-center justify-start w-full h-fit max-w-3xl bg-neutral-300">
-      <div class="flex flex-col h-full w-full mt-[var(--auth-header-h)]">
+    <main
+      class="relative flex flex-col items-center justify-start w-full h-fit max-w-3xl bg-neutral-300 mt-[var(--auth-header-h)]">
+      <div class="flex flex-col h-full w-full">
         <div class="h-fit flex flex-col p-4 min-h-screen">
           <div :key="activeTab">
             <!-- LOGIN TAB -->
@@ -96,7 +97,7 @@
           </div>
         </div>
       </div>
-    </section>
+    </main>
   </main>
 </template>
 

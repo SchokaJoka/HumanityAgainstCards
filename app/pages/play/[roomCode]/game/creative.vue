@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import myCarouselJudging from "~/components/myCarouselJudging.vue";
 
 const user = useSupabaseUser();
 const supabase = useSupabaseClient();
@@ -502,7 +503,7 @@ const roundStatusMessage = computed(() => {
 
                 <!-- Czar Judging Carousel -->
                 <div v-if="roundStatus === 'round_submitted'" class="w-full h-full overflow-y-visible">
-                    <MyCarousel :items="judgingCarouselItems" :lookup-cards="judgingLookupCards"
+                    <MyCarouselJudging :items="judgingCarouselItems" :lookup-cards="judgingLookupCards"
                         :selected-ids="selectedJudgingCardIds" selected-class="selected-judging"
                         @select-item="pickWinner" />
                 </div>
@@ -533,10 +534,10 @@ const roundStatusMessage = computed(() => {
                 <Button v-if="roundStatus === 'round_start' && !isCzar && !isWhiteCardsSubmitted" @click="submitCards"
                     :disabled="isSubmittingWhiteCards || !canSubmitWhiteCards" variant="primary" size="md"
                     class="rounded-xl" key="submit-cards">
-                    {{ 
-                        isSubmittingWhiteCards 
-                            ? 'Submitting...' 
-                            : filledCardsCount !== numberOfCardsToPlay 
+                    {{
+                        isSubmittingWhiteCards
+                            ? 'Submitting...'
+                            : filledCardsCount !== numberOfCardsToPlay
                                 ? `${filledCardsCount} / ${numberOfCardsToPlay} Cards `
                                 : 'Submit Cards' }}
                 </Button>
