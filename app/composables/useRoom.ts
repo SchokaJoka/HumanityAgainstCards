@@ -416,6 +416,33 @@ export function useRoom() {
     await supabase.removeAllChannels();
   }
 
+  async function setRoomRoundStatus(roomId: string, status: string) {
+    if (!roomId) return;
+    try {
+      const { data: room, error: roomErr } = await supabase
+        .from("rooms")
+        .select("metadata")
+        .eq("id", roomId)
+        .single();
+
+      if (roomErr) {
+        console.error("[useRoom] Couldn't load room metadata:", roomErr);
+        return;
+      }
+
+      const metadata = (room?.metadata ?? {}) as Record<string, any>;
+      const { error: updateErr } = await supabase
+        .from("rooms")
+        .update({ metadata: { ...(metadata ?? {}), round_status: status } })
+        .eq("id", roomId);
+
+      if (updateErr)
+        console.error("[useRoom] Error updating round_status:", updateErr);
+    } catch (err) {
+      console.error("[useRoom] setRoomRoundStatus error:", err);
+    }
+  }
+
   return {
     // Variables
     isLeaving,
@@ -436,5 +463,6 @@ export function useRoom() {
     setupBroadcastListeners,
     loadInitialHandCards,
     leaveRoomRealtime,
+    setRoomRoundStatus,
   };
 }

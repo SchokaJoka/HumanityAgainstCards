@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import myCarouselJudging from "~/components/myCarouselJudging.vue";
+import LeaveConfirmOverlay from '~/components/LeaveConfirmOverlay.vue';
 
 // VARIABLES
 // ============================================================
@@ -51,7 +52,33 @@ const {
   setupBroadcastListeners,
   loadInitialHandCards,
   leaveRoomRealtime,
+  setRoomRoundStatus,
 } = useRoom();
+
+const showLeaveConfirm = ref(false);
+
+async function handleLeaveConfirmed() {
+  showLeaveConfirm.value = false;
+  await deletePlayerFromRoomTable(roomId.value, playerId.value);
+  navigateTo('/');
+}
+
+async function handleBackToLobbyConfirmed() {
+  showLeaveConfirm.value = false;
+  if (!roomId.value) return;
+  try {
+    const { data, error } = await supabase.functions.invoke("initialize_game", {
+      method: "POST",
+      body: { room_id: roomId.value, action: "back_to_lobby" },
+    });
+    if (error) console.error("[EDGE] back_to_lobby error:", error);
+    else console.log("[EDGE] back_to_lobby", data);
+  } catch (err) {
+    console.error("Error invoking initialize_game back_to_lobby:", err);
+  }
+
+  navigateTo(`/play/${route.params.roomCode}/lobby`);
+}
 
 const {
   // Variables
@@ -538,8 +565,10 @@ const dev2gaps = ref(false);
             </div>
           </div>
         </div>
-        <Button v-if="!isCzar || roundStatus !== 'round_end'" @click="deletePlayerFromRoomTable(roomId, playerId)"
-          variant="primary" size="md" class="rounded-xl">Leave</Button>
+        <LeaveConfirmOverlay :show="showLeaveConfirm" :is-game-master="isGameMaster" :round-status="roundStatus"
+          @close="showLeaveConfirm = false" @leave="handleLeaveConfirmed" @back-to-lobby="handleBackToLobbyConfirmed" />
+        <Button v-if="!isCzar || roundStatus !== 'round_end'" @click="showLeaveConfirm = true" variant="primary"
+          size="md" class="rounded-xl">Leave</Button>
         <Button v-if="isCzar && roundStatus === 'round_end'" @click="initializeNextRound(roomId)" variant="primary"
           size="md" class="rounded-xl">Continue</Button>
       </div>
@@ -563,8 +592,8 @@ const dev2gaps = ref(false);
           <!-- Black Card -->
           <div v-if="blackCard"
             class="rounded-xl border-[3px] border-white w-52 h-64 bg-black p-4 text-normal font-bold z-10 overflow-y-auto">
-            <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`" :class="part.isGap ? 'text-violet-400' : 'text-white'"
-              @click="deleteWhiteCardAtGap(part.gapIndex)">
+            <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
+              :class="part.isGap ? 'text-violet-400' : 'text-white'" @click="deleteWhiteCardAtGap(part.gapIndex)">
               {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "___" : part.text }}
             </span>
           </div>

@@ -25,29 +25,28 @@ export function useGameManager() {
 
   const gameStarted = useState<boolean>("gameStarted", () => false);
 
-  
   const isCzar = useState<boolean>("isCzar", () => false);
-  
+
   const myChosenWhiteCards = useState<any[]>("myChosenWhiteCards", () => []);
-  
+
   const isStartingGame = ref(false);
   const isStartingNextRound = ref(false);
-  
+
   const errorMessage = useState<string | null>("gameErrorMessage", () => null);
-  
+
   const roomId = useState<string | null>("gameManagerRoomId", () => null);
   const playerId = useState<string | null>("gameManagerPlayerId", () => null);
-  
+
   const myPresenceStatus = computed(() => {
     if (!gameStarted.value) {
       return "waiting";
     }
-    
+
     switch (roundStatus.value) {
       case "lobby":
         return "waiting";
         break;
-      
+
       case "round_start":
         if (isCzar.value) {
           return "czar";
@@ -55,15 +54,17 @@ export function useGameManager() {
           return isWhiteCardsSubmitted.value ? "submitted" : "choosing";
         }
         break;
-      
+
       case "round_submitted":
         return isCzar.value ? "judging" : "waiting";
         break;
-      
+
       case "round_end":
-        return winnerUserId.value && winnerUserId.value === playerId.value ? "winner" : "round_end";
+        return winnerUserId.value && winnerUserId.value === playerId.value
+          ? "winner"
+          : "round_end";
         break;
-      
+
       default:
         return "error_unknown_status";
     }
@@ -231,14 +232,29 @@ export function useGameManager() {
         await handleRoundEnd(currentMetaData);
         break;
       case "lobby":
+        // Cleanup local game state when returning to lobby
+        winnerUserId.value = null;
+        winnerUsername.value = "";
+        winnerCards.value = [];
+        playerSubmissions.value = [];
+        blackCard.value = null;
+        myChosenWhiteCards.value = [];
+        updateIfChanged(gameStarted, false as any);
+        try {
+          const route = useRoute();
+          const roomCode = String(route.params.roomCode ?? "");
+          if (roomCode) navigateTo(`/play/${roomCode}/lobby`);
+        } catch (e) {
+          // ignore if route/navigate not available in this context
+        }
         break;
       default:
         console.error("Unknown round status:", currentMetaData.round_status);
     }
 
-    if(roomId.value) {
-      console.log('[TRACKMYSTATUS]')
-      await trackMyStatus(myPresenceStatus.value, roomId.value)
+    if (roomId.value) {
+      console.log("[TRACKMYSTATUS]");
+      await trackMyStatus(myPresenceStatus.value, roomId.value);
     }
   }
 
@@ -311,15 +327,15 @@ export function useGameManager() {
   async function trackMyStatus(myPresenceStatus: string, roomId: string) {
     if (!user.value) return;
 
-      const { error } = await supabase
-        .from("room_members")
-        .update({ status: myPresenceStatus })
-        .eq("room_id", roomId)
-        .eq("user_id", user.value.sub);
+    const { error } = await supabase
+      .from("room_members")
+      .update({ status: myPresenceStatus })
+      .eq("room_id", roomId)
+      .eq("user_id", user.value.sub);
 
-      if (error) {
-        console.error("[useRoom] Failed to update player status", error);
-      }
+    if (error) {
+      console.error("[useRoom] Failed to update player status", error);
+    }
   }
 
   return {
@@ -338,7 +354,6 @@ export function useGameManager() {
     gameManagerRoomId: roomId,
     gameManagerPlayerId: playerId,
 
-    
     // Functions
     trackMyStatus,
     initializeGame,

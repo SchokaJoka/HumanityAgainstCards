@@ -33,7 +33,48 @@ Deno.serve(async (req: Request) => {
       cardsPerPlayer = null,
       dev2gaps = false,
       mode = "classic",
+      action = null,
     } = body;
+
+    // Handle administrative actions routed through this function
+    if (action === "back_to_lobby") {
+      const { data: room, error: roomErr } = await supabase
+        .from("rooms")
+        .select("metadata")
+        .eq("id", room_id)
+        .single();
+
+      if (roomErr) {
+        return new Response(
+          JSON.stringify({ error: roomErr.message || roomErr }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const metadata = (room?.metadata ?? {}) as Record<string, any>;
+      const { error: updateErr } = await supabase
+        .from("rooms")
+        .update({ metadata: { ...(metadata ?? {}), round_status: "lobby" } })
+        .eq("id", room_id);
+
+      if (updateErr) {
+        return new Response(
+          JSON.stringify({ error: updateErr.message || updateErr }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // 1. Get room members to determine Czar and deal cards
     const { data: members, error: membersErr } = await supabase

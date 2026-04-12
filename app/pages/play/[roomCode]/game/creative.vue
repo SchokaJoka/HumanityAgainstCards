@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import myCarouselJudging from "~/components/myCarouselJudging.vue";
+import LeaveConfirmOverlay from '~/components/LeaveConfirmOverlay.vue';
 
 const user = useSupabaseUser();
 const supabase = useSupabaseClient();
@@ -41,6 +42,7 @@ const {
     markMemberInactive,
     trackMyStatus,
     leaveRoomRealtime,
+    setRoomRoundStatus,
 } = useRoom();
 
 const {
@@ -346,6 +348,35 @@ async function saveSet() {
 }
 
 const isNavigatingWithinRoom = ref(false);
+const showLeaveConfirm = ref(false);
+
+async function handleLeaveConfirmed() {
+    showLeaveConfirm.value = false;
+    await deletePlayerFromRoomTable(roomId.value, playerId.value);
+    navigateTo('/');
+}
+
+async function handleBackToLobbyConfirmed() {
+    showLeaveConfirm.value = false;
+    if (!roomId.value) return;
+    try {
+        const { data, error } = await supabase.functions.invoke("initialize_game", {
+            method: "POST",
+            body: { room_id: roomId.value, action: "back_to_lobby" },
+        });
+        if (error) console.error("[EDGE] back_to_lobby error:", error);
+        else console.log("[EDGE] back_to_lobby", data);
+    } catch (err) {
+        console.error("Error invoking initialize_game back_to_lobby:", err);
+    }
+
+    navigateTo(`/play/${roomCode.value}/lobby`);
+}
+
+async function handleSaveSetConfirmed() {
+    showLeaveConfirm.value = false;
+    await saveSet();
+}
 
 onMounted(async () => {
     roomCode.value = String(route.params.roomCode ?? "").toUpperCase();
@@ -451,10 +482,11 @@ const roundStatusMessage = computed(() => {
                             player.user_name }}</span>
                     </div>
                 </div>
-                <Button @click="deletePlayerFromRoomTable(roomId, playerId)" variant="primary" size="md"
-                    class="rounded-xl">
-                    Leave
-                </Button>
+                <LeaveConfirmOverlay :show="showLeaveConfirm" :is-game-master="isGameMaster" :round-status="roundStatus"
+                    :saved-collection-id="savedCollectionId" @close="showLeaveConfirm = false"
+                    @leave="handleLeaveConfirmed" @back-to-lobby="handleBackToLobbyConfirmed"
+                    @save-set="handleSaveSetConfirmed" />
+                <Button @click="showLeaveConfirm = true" variant="primary" size="md" class="rounded-xl">Leave</Button>
             </div>
             <div class="w-full flex flex-row gap-2">
                 <div class="w-full text-center font-medium text-md">
