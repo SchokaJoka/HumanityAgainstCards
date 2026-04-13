@@ -1,5 +1,15 @@
 <template>
-  <button :type="type" :class="buttonClasses" :style="buttonStyle" :disabled="isDisabled" @click="handleClick">
+  <button
+    :type="type"
+    :class="buttonClasses"
+    :style="buttonStyle"
+    :disabled="isDisabled"
+    @click="handleClick"
+    @pointerdown="setPressed(true)"
+    @pointerup="setPressed(false)"
+    @pointercancel="setPressed(false)"
+    @pointerleave="setPressed(false)"
+  >
     <span v-if="loading" class="inline-flex items-center gap-2">
       <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
       <slot name="loading">Loading...</slot>
@@ -42,6 +52,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   (event: "click", payload: MouseEvent): void;
 }>();
+
+const isPressed = ref(false);
 
 const isDisabled = computed(() => props.disabled || props.loading);
 
@@ -111,10 +123,16 @@ const buttonClasses = computed(() => [
   "btn-base inline-flex items-center justify-center p-2.5 transform-gpu will-change-transform transition-[background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
   "focus-visible:outline-none focus-visible:ring-2",
   "disabled:cursor-not-allowed disabled:opacity-60",
+  isPressed.value && "is-pressed",
   props.block ? "w-full" : "w-fit",
   variantClasses[props.variant],
   sizeClasses[props.size],
 ]);
+
+const setPressed = (pressed: boolean) => {
+  if (isDisabled.value) return;
+  isPressed.value = pressed;
+};
 
 const handleClick = (event: MouseEvent) => {
   if (isDisabled.value) {
@@ -122,6 +140,7 @@ const handleClick = (event: MouseEvent) => {
     return;
   }
 
+  isPressed.value = false;
   emit("click", event);
 };
 </script>
@@ -129,15 +148,26 @@ const handleClick = (event: MouseEvent) => {
 <style scoped>
 .btn-base {
   box-shadow: var(--btn-shadow);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-base:active {
   box-shadow: var(--btn-shadow-active);
 }
 
+.btn-base.is-pressed {
+  box-shadow: var(--btn-shadow-active);
+  transform: translate(-3px, -3px);
+}
+
 /* Improve mobile touch feedback */
 @media (hover: none) and (pointer: coarse) {
   .btn-base:active {
+    transition-duration: 100ms;
+  }
+
+  .btn-base.is-pressed {
     transition-duration: 100ms;
   }
 }
