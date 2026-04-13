@@ -4,6 +4,7 @@ const props = defineProps({
     isGameMaster: { type: Boolean, required: true },
     roundStatus: { type: String, required: false, default: "" },
     savedCollectionId: { type: [String, null], required: false, default: null },
+    mode: { type: String as () => "classic" | "creative" | null, required: false, default: null },
 });
 const emit = defineEmits<{
     (e: 'close'): void;
@@ -11,6 +12,7 @@ const emit = defineEmits<{
     (e: 'back-to-lobby'): void;
     (e: 'save-set'): void;
 }>();
+
 
 function onBackdrop() { emit('close'); }
 function onLeave() { emit('leave'); }
@@ -25,8 +27,10 @@ function onSaveSet() { emit('save-set'); }
                 <div class="text-lg font-semibold">Are you sure?</div>
                 <p class="text-sm">Leaving will remove you from the game.</p>
                 <Button variant="danger" size="lg" block @click="onLeave">Leave Game</Button>
-                <Button v-if="isGameMaster" variant="primary" size="lg" block @click="onBackToLobby">Back to Lobby</Button>
-                <Button v-if="isGameMaster && roundStatus === 'round_end' && !savedCollectionId" variant="tertiary" size="lg" block @click="onSaveSet">Save Set</Button>
+                <Button v-if="isGameMaster" variant="primary" size="lg" block @click="onBackToLobby">Back to
+                    Lobby</Button>
+                <Button v-if="isGameMaster && roundStatus === 'round_end' && !savedCollectionId && props.mode === 'creative'"
+                    variant="tertiary" size="lg" block @click="onSaveSet">Save Set</Button>
                 <Button variant="ghost" size="lg" block @click="onBackdrop">Cancel</Button>
             </div>
         </div>
