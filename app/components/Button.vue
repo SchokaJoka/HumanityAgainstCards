@@ -47,9 +47,9 @@ const isDisabled = computed(() => props.disabled || props.loading);
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-white text-black border-black md:hover:bg-[#FFF766] md:hover:-translate-y-1 active:bg-[#00E1EF] focus-visible:ring-[#00E1EF]",
+    "bg-white text-black border-black md:hover:bg-[#FFF766] md:hover:-translate-y-1 active:bg-[#00E1EF] active:-translate-x-1 active:-translate-y-1 focus-visible:ring-[#00E1EF]",
   secondary:
-    "bg-black text-white border-white md:hover:-translate-y-1 active:bg-black/80 focus-visible:ring-neutral-300",
+    "bg-black text-white border-white md:hover:-translate-y-1 active:bg-black/80 active:-translate-x-1 active:-translate-y-1 focus-visible:ring-neutral-300",
   tertiary:
     "bg-green-300 text-black border-black md:hover:bg-green-400 md:hover:-translate-y-1 active:bg-green-500 active:-translate-x-2 active:-translate-y-2 focus-visible:ring-green-500",
   danger:
@@ -133,5 +133,12 @@ const handleClick = (event: MouseEvent) => {
 
 .btn-base:active {
   box-shadow: var(--btn-shadow-active);
+}
+
+/* Improve mobile touch feedback */
+@media (hover: none) and (pointer: coarse) {
+  .btn-base:active {
+    transition-duration: 100ms;
+  }
 }
 </style>
