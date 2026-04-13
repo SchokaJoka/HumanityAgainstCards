@@ -518,23 +518,17 @@ const deleteWhiteCardAtGap = (gapIndex?: number) => {
 // ============================================================
 
 async function handleLeaveConfirmed() {
-<<<<<<< Updated upstream
   if (isLeavingGame.value) return;
 
   isLeavingGame.value = true;
   try {
     await deletePlayerFromRoomTable(roomId.value, playerId.value);
+    await leaveRoomRealtime();
     navigateTo('/');
   } finally {
     isLeavingGame.value = false;
+    showLeaveConfirm.value = false;
   }
-=======
-  showLeaveConfirm.value = false;
-  await deletePlayerFromRoomTable(roomId.value, playerId.value);
-  await leaveRoomRealtime();
-  navigateTo('/');
-
->>>>>>> Stashed changes
 }
 
 async function handleBackToLobbyConfirmed() {
