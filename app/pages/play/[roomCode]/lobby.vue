@@ -121,6 +121,25 @@ async function startGame() {
     errorMessage.value = "At least 2 players are required to start the game.";
     return;
   }
+
+  // Ensure server-side room_members are present/active and match UI presence
+  try {
+    const { data: members, error: membersErr } = await supabase
+      .from("room_members")
+      .select("user_id,is_active")
+      .eq("room_id", roomId.value);
+    if (membersErr) {
+      console.warn("Failed to load room_members before start:", membersErr);
+    } else {
+      const activeMembers = (members ?? []).filter((m: any) => m.is_active !== false);
+      if (activeMembers.length !== (players.value ?? []).length) {
+        errorMessage.value = "Waiting for all players to rejoin; cannot start yet.";
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn("Error checking room_members before start:", e);
+  }
   if (selectedGameMode.value === "creative") {
     const ok = await initializeGame(roomId.value, roomCode.value, dev2gaps.value, null, selectedGameMode.value);
     if (ok) navigateTo(`/play/${roomCode.value}/game/${selectedGameMode.value}`);

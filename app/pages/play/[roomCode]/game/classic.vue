@@ -95,7 +95,7 @@ watch([playerId, czarId], () => {
 });
 
 watch([playerId, gameMasterId], ([nextPlayerId, nextGameMasterId]) => {
-    isGameMaster.value = !!nextPlayerId && nextGameMasterId === nextPlayerId;
+  isGameMaster.value = !!nextPlayerId && nextGameMasterId === nextPlayerId;
 });
 
 const numberOfCardsToPlay = computed(() => {
@@ -459,9 +459,6 @@ onUnmounted(async () => {
     await markMemberInactive(roomId.value, playerId.value);
   }
 
-  if (!isNavigatingWithinRoom.value) {
-    await leaveRoomRealtime();
-  }
 });
 // ============================================================
 
@@ -521,6 +518,7 @@ const deleteWhiteCardAtGap = (gapIndex?: number) => {
 // ============================================================
 
 async function handleLeaveConfirmed() {
+<<<<<<< Updated upstream
   if (isLeavingGame.value) return;
 
   isLeavingGame.value = true;
@@ -530,6 +528,13 @@ async function handleLeaveConfirmed() {
   } finally {
     isLeavingGame.value = false;
   }
+=======
+  showLeaveConfirm.value = false;
+  await deletePlayerFromRoomTable(roomId.value, playerId.value);
+  await leaveRoomRealtime();
+  navigateTo('/');
+
+>>>>>>> Stashed changes
 }
 
 async function handleBackToLobbyConfirmed() {
@@ -540,7 +545,7 @@ async function handleBackToLobbyConfirmed() {
   try {
     const { data, error } = await supabase.functions.invoke("end_game_go_back_to_lobby", {
       method: "POST",
-      body: { room_id: roomId.value}
+      body: { room_id: roomId.value }
     });
     if (error) console.error("[EDGE] end_game_go_back_to_lobby error:", error);
     else console.log("[EDGE] end_game_go_back_to_lobby", data);

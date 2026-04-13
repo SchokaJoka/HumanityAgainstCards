@@ -208,12 +208,25 @@ export function useRoom() {
   }
 
   async function joinRoom(roomCode: string, playerId: string) {
-    if (gameChannel.value !== null) {
-      supabase.removeAllChannels();
+    // Reuse existing channel if it already targets the same room
+    if (gameChannel.value && (gameChannel.value as any).topic === roomCode) {
+      return;
+    }
+
+    // If we have a different channel, clean it up
+    if (gameChannel.value) {
+      try {
+        const old = gameChannel.value;
+        await old.unsubscribe();
+        await supabase.removeChannel(old);
+      } catch (err) {
+        console.error("[useRoom] Error removing existing channel:", err);
+      }
       gameChannel.value = null;
     }
 
-    gameChannel.value = supabase.channel(`${roomCode}`, {
+    // Create a new channel for this room (topic must match server broadcasts)
+    gameChannel.value = supabase.channel(roomCode, {
       config: { broadcast: { self: true }, presence: { key: playerId } },
     });
 

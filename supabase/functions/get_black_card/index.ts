@@ -68,7 +68,7 @@ Deno.serve(async (req: Request) => {
     // Update room metadata with current black card
     const { error: metadataErr } = await supabase
       .from('rooms')
-      .update({ metadata: { black_card: cardInfo, czar_id: czarId, gameState: "round_start" } })
+      .update({ metadata: { black_card: cardInfo, czar_id: czarId, round_status: "round_start" } })
       .eq('id', room_id);
     if (metadataErr) throw metadataErr;
 
