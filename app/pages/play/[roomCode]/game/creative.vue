@@ -244,6 +244,15 @@ const canSubmitWhiteCards = computed(() => {
 });
 
 async function submitCards() {
+    if (!canSubmitWhiteCards.value) return;
+    if (!roomId.value || !playerId.value || !czarId.value) {
+        console.warn("[creative] submitCards missing ids", {
+            roomId: roomId.value,
+            playerId: playerId.value,
+            czarId: czarId.value,
+        });
+        return;
+    }
     if (isSubmittingWhiteCards.value) return;
     isSubmittingWhiteCards.value = true;
 
@@ -371,7 +380,7 @@ async function saveSet() {
     }
 }
 
-const isNavigatingWithinRoom = ref(false);
+const isRoomNavigation = useState<boolean>("isRoomNavigation", () => false);
 const showLeaveConfirm = ref(false);
 
 async function handleLeaveConfirmed() {
@@ -403,6 +412,7 @@ async function handleSaveSetConfirmed() {
 }
 
 onMounted(async () => {
+    isRoomNavigation.value = false;
     roomCode.value = String(route.params.roomCode ?? "").toUpperCase();
 
     roomId.value = await getRoomIdByCode(roomCode.value);
@@ -434,7 +444,11 @@ onMounted(async () => {
     await syncPlayerScoresForRoom(roomId.value);
 
     if (!gameChannel.value) {
-        await enterRoom(roomId.value, roomCode.value, playerId.value, "waiting");
+        const joined = await enterRoom(roomId.value, roomCode.value, playerId.value);
+        if (!joined) {
+            await navigateTo(`/play/${roomCode.value}/lobby`);
+            return;
+        }
         try {
             const roomMetadata = await getRoomMetadata(roomId.value);
             const initialMetadata = (roomMetadata?.metadata ?? null) as any;
@@ -450,8 +464,10 @@ onMounted(async () => {
 });
 
 onBeforeRouteLeave((to) => {
-    if (to.params.roomCode === route.params.roomCode) {
-        isNavigatingWithinRoom.value = true;
+    const nextCode = String(to.params.roomCode ?? "").toUpperCase();
+    const currentCode = String(route.params.roomCode ?? "").toUpperCase();
+    if (nextCode && nextCode === currentCode) {
+        isRoomNavigation.value = true;
     }
 });
 
@@ -467,11 +483,11 @@ onUnmounted(async () => {
     isWhiteCardsSubmitted.value = false;
     isChoosingWinner.value = false;
 
-    if (!isLeaving.value && roomId.value && playerId.value) {
-        await markMemberInactive(roomId.value, playerId.value);
-    }
+    if (!isRoomNavigation.value) {
+        if (!isLeaving.value && roomId.value && playerId.value) {
+            await markMemberInactive(roomId.value, playerId.value);
+        }
 
-    if (!isNavigatingWithinRoom.value) {
         await leaveRoomRealtime();
     }
 });

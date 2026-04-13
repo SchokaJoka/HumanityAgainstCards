@@ -362,9 +362,10 @@ watch(
 
 // onMounted, onUnmounted
 // ============================================================
-const isNavigatingWithinRoom = ref(false);
+const isRoomNavigation = useState<boolean>("isRoomNavigation", () => false);
 
 onMounted(async () => {
+  isRoomNavigation.value = false;
   roomCode.value = String(route.params.roomCode ?? "").toUpperCase();
 
   roomId.value = await getRoomIdByCode(roomCode.value);
@@ -401,8 +402,11 @@ onMounted(async () => {
 
   if (!gameChannel.value) {
     console.warn("gameChannel not exists, rejoining");
-    enterRoom(roomId.value, roomCode.value, playerId.value);
-
+    const joined = await enterRoom(roomId.value, roomCode.value, playerId.value);
+    if (!joined) {
+      await navigateTo(`/play/${roomCode.value}/lobby`);
+      return;
+    }
   }
 
   // STEP 2: Conditionally load game state if game already started
@@ -438,8 +442,10 @@ onMounted(async () => {
 
 onBeforeRouteLeave((to) => {
   // If moving within the same room flow, preserve the channel
-  if (to.params.roomCode === route.params.roomCode) {
-    isNavigatingWithinRoom.value = true;
+  const nextCode = String(to.params.roomCode ?? "").toUpperCase();
+  const currentCode = String(route.params.roomCode ?? "").toUpperCase();
+  if (nextCode && nextCode === currentCode) {
+    isRoomNavigation.value = true;
   }
 });
 
@@ -457,11 +463,13 @@ onUnmounted(async () => {
   isWhiteCardsSubmitted.value = false;
   isChoosingWinner.value = false;
 
-  if (!isLeaving.value && roomId.value && playerId.value) {
-    await markMemberInactive(roomId.value, playerId.value);
-  }
+  if (!isRoomNavigation.value) {
+    if (!isLeaving.value && roomId.value && playerId.value) {
+      await markMemberInactive(roomId.value, playerId.value);
+    }
 
-  await leaveRoomRealtime();
+    await leaveRoomRealtime();
+  }
 
 });
 // ============================================================
@@ -604,10 +612,10 @@ const dev2gaps = ref(false);
           </div>
         </div>
         <LeaveConfirmOverlay :show="showLeaveConfirm" :is-game-master="isGameMaster" :round-status="roundStatus"
-          :leave-loading="isLeavingGame" :back-to-lobby-loading="isReturningToLobby"
-          @close="showLeaveConfirm = false" @leave="handleLeaveConfirmed" @back-to-lobby="handleBackToLobbyConfirmed" />
-        <Button @click="showLeaveConfirm = true" :variant="isCzar ? 'primary' : 'secondary'"
-          size="md" class="">Leave</Button>
+          :leave-loading="isLeavingGame" :back-to-lobby-loading="isReturningToLobby" @close="showLeaveConfirm = false"
+          @leave="handleLeaveConfirmed" @back-to-lobby="handleBackToLobbyConfirmed" />
+        <Button @click="showLeaveConfirm = true" :variant="isCzar ? 'primary' : 'secondary'" size="md"
+          class="">Leave</Button>
       </div>
       <div class="w-full flex flex-row gap-2">
         <div class="w-full text-center font-medium text-md transition-all">
@@ -728,24 +736,24 @@ const dev2gaps = ref(false);
         <transition name="fade" mode="out-in">
           <Button v-if="roundStatus === 'round_start' && !isCzar && !isWhiteCardsSubmitted" @click="submitCards"
             :loading="isSubmittingWhiteCards"
-            :disabled="isSubmittingWhiteCards || myChosenWhiteCards.length !== numberOfCardsToPlay" :variant="isCzar ? 'primary' : 'secondary'"
-            size="md" class="" key="submit-cards">
+            :disabled="isSubmittingWhiteCards || myChosenWhiteCards.length !== numberOfCardsToPlay"
+            :variant="isCzar ? 'primary' : 'secondary'" size="md" class="" key="submit-cards">
             {{
               myChosenWhiteCards.length === numberOfCardsToPlay
-                  ? "Submit"
-                  : `${myChosenWhiteCards.length} / ${numberOfCardsToPlay} Cards`
+                ? "Submit"
+                : `${myChosenWhiteCards.length} / ${numberOfCardsToPlay} Cards`
             }}
             <template #loading>Submitting...</template>
           </Button>
           <Button v-else-if="roundStatus === 'round_submitted' && isCzar"
-            @click="submitWinner(selectedPlayerSubmission)" :loading="isChoosingWinner" :disabled="isChoosingWinner" :variant="isCzar ? 'primary' : 'secondary'" size="md"
-            class="" key="choose-winner">
+            @click="submitWinner(selectedPlayerSubmission)" :loading="isChoosingWinner" :disabled="isChoosingWinner"
+            :variant="isCzar ? 'primary' : 'secondary'" size="md" class="" key="choose-winner">
             Choose
             <template #loading>Choosing...</template>
           </Button>
           <Button v-else-if="roundStatus === 'round_end' && isCzar" @click="initializeNextRound(roomId)"
-            :loading="isStartingNextRound"
-            :disabled="isStartingNextRound" variant="secondary" size="md" class="" key="next-round">
+            :loading="isStartingNextRound" :disabled="isStartingNextRound" variant="secondary" size="md" class=""
+            key="next-round">
             Next Round
             <template #loading>Loading...</template>
           </Button>

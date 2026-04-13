@@ -14,6 +14,7 @@ export function useRoom() {
     "gameChannel",
     () => null,
   );
+  const isRoomNavigation = useState<boolean>("isRoomNavigation", () => false);
   const hasBoundRoomListeners = useState<boolean>(
     "hasBoundRoomListeners",
     () => false,
@@ -25,6 +26,10 @@ export function useRoom() {
 
   const isLeaving = ref<boolean>(false);
   const players = useState<any[]>("players", () => []);
+  const presenceByUserId = useState<Record<string, boolean>>(
+    "presenceByUserId",
+    () => ({}),
+  );
   const playerHandCards = useState<HandCards[]>("playerHandCards", () => []);
   const collectionCards = useState<CollectionCards[]>(
     "collectionCards",
@@ -70,57 +75,21 @@ export function useRoom() {
     if (!roomId || !playerId) return;
 
     try {
-      // 1. Check if leaving player is the owner (game master)
-      const { data: room, error: roomError } = await supabase
-        .from("rooms")
-        .select("owner")
-        .eq("id", roomId)
-        .single();
+      const { data, error } = await supabase.functions.invoke("leave_room", {
+        method: "POST",
+        body: {
+          room_id: roomId,
+          user_id: playerId,
+        },
+      });
 
-      if (roomError) {
-        console.error("[Leave] Error fetching room:", roomError);
+      if (error) {
+        console.error("Error leaving room:", error);
         return;
       }
 
-      if (room?.owner === playerId) {
-        // 2. Find the next player in join order (oldest member)
-        const { data: nextPlayers, error: nextPlayersError } = await supabase
-          .from("room_members")
-          .select("user_id")
-          .eq("room_id", roomId)
-          .neq("user_id", playerId)
-          .order("joined_at", { ascending: true })
-          .limit(1);
-
-        if (nextPlayersError) {
-          console.error("[Leave] Error finding next player:", nextPlayersError);
-        }
-
-        const nextPlayer = nextPlayers?.[0];
-
-        if (nextPlayer) {
-          const { error: updateError } = await supabase
-            .from("rooms")
-            .update({
-              owner: nextPlayer.user_id,
-            })
-            .eq("id", roomId);
-
-          if (updateError) {
-            console.error("[Leave] Error updating owner:", updateError);
-          }
-        }
-      }
-
-      // 3. Now delete the player
-      const { error: deleteError } = await supabase
-        .from("room_members")
-        .delete()
-        .eq("room_id", roomId)
-        .eq("user_id", playerId);
-
-      if (deleteError) {
-        console.error("Error leaving room:", deleteError);
+      if ((data as any)?.error) {
+        console.error("Error leaving room (edge):", (data as any).error);
         return;
       }
 
@@ -159,6 +128,33 @@ export function useRoom() {
     players.value = [];
   }
 
+  function mergePresenceIntoPlayers() {
+    const presence = presenceByUserId.value ?? {};
+    players.value = players.value.map((player: any) => ({
+      ...player,
+      is_online: !!presence[player.user_id],
+    }));
+  }
+
+  async function refreshRoomMembers(roomId: string) {
+    const { data, error } = await supabase
+      .from("room_members")
+      .select("user_id,user_name,status,points,metadata,joined_at,is_active")
+      .eq("room_id", roomId)
+      .order("joined_at", { ascending: true });
+
+    if (error) {
+      console.error("[useRoom] Error loading room_members:", error);
+      return;
+    }
+
+    const presence = presenceByUserId.value ?? {};
+    players.value = (data ?? []).map((member: any) => ({
+      ...member,
+      is_online: !!presence[member.user_id],
+    }));
+  }
+
   async function loadInitialHandCards(roomId: string, playerId: string) {
     const { data, error } = await supabase
       .from("hand_cards")
@@ -177,9 +173,13 @@ export function useRoom() {
     roomId: string,
     roomCode: string,
     playerId: string,
-  ) {
+  ): Promise<boolean> {
     await joinRoom(roomCode, playerId);
-    await insertPlayerInRoomTable(roomId, playerId);
+    const joined = await insertPlayerInRoomTable(roomId, playerId);
+    if (!joined) {
+      await leaveRoomRealtime();
+      return false;
+    }
     await setupBroadcastListeners(roomId, playerId);
 
     if (gameChannel.value) {
@@ -197,26 +197,34 @@ export function useRoom() {
     if (!isJoined) {
       console.warn("[useRoom] Channel did not reach SUBSCRIBED state.");
     }
+
+    return true;
   }
 
-  async function insertPlayerInRoomTable(roomId: string, playerId: string) {
-    const { error } = await supabase.from("room_members").upsert(
-      {
+  async function insertPlayerInRoomTable(
+    roomId: string,
+    playerId: string,
+  ): Promise<boolean> {
+    const { data, error } = await supabase.functions.invoke("join_room", {
+      method: "POST",
+      body: {
         room_id: roomId,
         user_id: playerId,
-        role: "player",
-        is_active: true,
-        left_at: null,
-        user_name: user.value?.user_metadata?.full_name,
-        joined_at: new Date().toISOString(),
+        user_name: user.value?.user_metadata?.full_name ?? null,
       },
-      { onConflict: "room_id,user_id" },
-    );
+    });
 
     if (error) {
       console.error("Error joining room:", error);
-      return;
+      return false;
     }
+
+    if ((data as any)?.error) {
+      console.error("Error joining room (edge):", (data as any).error);
+      return false;
+    }
+
+    return true;
   }
 
   async function joinRoom(roomCode: string, playerId: string) {
@@ -292,10 +300,7 @@ export function useRoom() {
     return (gameChannel.value as any)?.state === "joined";
   }
 
-  async function setupBroadcastListeners(
-    roomId: string,
-    playerId: string,
-  ) {
+  async function setupBroadcastListeners(roomId: string, playerId: string) {
     // Validation
     const channel = gameChannel.value;
     if (!channel || !user.value) {
@@ -304,17 +309,24 @@ export function useRoom() {
     }
 
     if (hasBoundRoomListeners.value) {
+      await refreshRoomMembers(roomId);
       return;
     }
 
     // PRESENCE SYNC
     channel.on("presence", { event: "sync" }, () => {
       const state = channel.presenceState() ?? {};
+      const nextPresence: Record<string, boolean> = {};
 
-      players.value = Object.values(state)
-        .map((arr: any) => arr?.[0])
-        .filter(Boolean)
-        .sort((a: any, b: any) => (a?.joined_at ?? 0) - (b?.joined_at ?? 0));
+      Object.values(state).forEach((arr: any) => {
+        const entry = arr?.[0];
+        if (entry?.user_id) {
+          nextPresence[entry.user_id] = true;
+        }
+      });
+
+      presenceByUserId.value = nextPresence;
+      mergePresenceIntoPlayers();
     });
 
     channel.on(
@@ -328,16 +340,12 @@ export function useRoom() {
     );
 
     // navigate_to_game (only register in lobby context)
-    channel.on(
-      "broadcast",
-      { event: "navigate_to_game" },
-      (payload) => {
-        console.log("[BROADCAST] navigate_to_game:", payload);
-        const mode = payload?.payload?.mode ?? "classic";
-        navigateTo(`/play/${payload.payload.roomCode}/game/${mode}`);
-      },
-    );
-
+    channel.on("broadcast", { event: "navigate_to_game" }, (payload) => {
+      console.log("[BROADCAST] navigate_to_game:", payload);
+      isRoomNavigation.value = true;
+      const mode = payload?.payload?.mode ?? "classic";
+      navigateTo(`/play/${payload.payload.roomCode}/game/${mode}`);
+    });
 
     // POSTGRES CHANGES - hand_cards (automatic sync)
     channel.on(
@@ -374,28 +382,20 @@ export function useRoom() {
       },
     );
 
-    // POSTGRES CHANGES - room_members status updates
+    // POSTGRES CHANGES - room_members updates
     channel.on(
       "postgres_changes",
       {
-        event: "UPDATE",
+        event: "*",
         schema: "public",
         table: "room_members",
         filter: `room_id=eq.${roomId}`,
       },
-      (payload) => {
-        // Update player status in local players list
-        const playerIndex = players.value.findIndex(
-          (p) => p.user_id === payload.new.user_id,
-        );
-        if (playerIndex !== -1) {
-          players.value[playerIndex] = {
-            ...players.value[playerIndex],
-            status: payload.new.status,
-          };
+      async (payload) => {
+        if (payload.eventType === "UPDATE") {
+          updatePlayerScoreFromMember(payload.new);
         }
-        // Update player score from member data
-        updatePlayerScoreFromMember(payload.new);
+        await refreshRoomMembers(roomId);
       },
     );
 
@@ -403,37 +403,33 @@ export function useRoom() {
 
     // game_initialize
     // ...existing code...
-    channel.on(
-      "broadcast",
-      { event: "game_initialize" },
-      async (body) => {
-        try {
-          console.log("[BROADCAST] game_initialize: ", body);
-          const setId = body?.payload?.set_id;
+    channel.on("broadcast", { event: "game_initialize" }, async (body) => {
+      try {
+        console.log("[BROADCAST] game_initialize: ", body);
+        const setId = body?.payload?.set_id;
 
-          let query = supabase.from("cards").select("*");
-          if (Array.isArray(setId)) {
-            query = query.in("collection_id", setId as string[]);
-          } else if (setId) {
-            query = query.eq("collection_id", setId as string);
-          }
-
-          const { data: data2, error: error2 } = await query;
-          if (error2) {
-            console.error("Error fetching collection cards:", error2);
-            return;
-          }
-
-          collectionCards.value = data2 ?? [];
-          console.log(
-            "[BROADCAST] loaded collection cards:",
-            collectionCards.value.length,
-          );
-        } catch (err) {
-          console.error("[BROADCAST] game_initialize handler error:", err);
+        let query = supabase.from("cards").select("*");
+        if (Array.isArray(setId)) {
+          query = query.in("collection_id", setId as string[]);
+        } else if (setId) {
+          query = query.eq("collection_id", setId as string);
         }
-      },
-    );
+
+        const { data: data2, error: error2 } = await query;
+        if (error2) {
+          console.error("Error fetching collection cards:", error2);
+          return;
+        }
+
+        collectionCards.value = data2 ?? [];
+        console.log(
+          "[BROADCAST] loaded collection cards:",
+          collectionCards.value.length,
+        );
+      } catch (err) {
+        console.error("[BROADCAST] game_initialize handler error:", err);
+      }
+    });
 
     // game_start
     channel.on("broadcast", { event: "game_start" }, () => {
@@ -443,13 +439,9 @@ export function useRoom() {
     });
 
     // round_submitted (fallback refresh)
-    channel.on(
-      "broadcast",
-      { event: "round_submitted" },
-      async (body) => {
-        console.log("[BROADCAST] round_submitted", body);
-      },
-    );
+    channel.on("broadcast", { event: "round_submitted" }, async (body) => {
+      console.log("[BROADCAST] round_submitted", body);
+    });
 
     // Realtime table listeners (after channel is created)
     channel.on(
@@ -465,9 +457,15 @@ export function useRoom() {
         if (gameMasterId.value !== payload.new.owner) {
           gameMasterId.value = payload.new.owner;
         }
+        const nextMode = payload.new.metadata?.mode;
+        if (nextMode === "classic" || nextMode === "creative") {
+          selectedGameMode.value = nextMode;
+        }
         handleGameStateChanges(payload.new.metadata);
       },
     );
+
+    await refreshRoomMembers(roomId);
 
     hasBoundRoomListeners.value = true;
   }
@@ -486,6 +484,8 @@ export function useRoom() {
       }
     }
     hasBoundRoomListeners.value = false;
+    presenceByUserId.value = {};
+    isRoomNavigation.value = false;
     // Thorough cleanup as requested
     await supabase.removeAllChannels();
   }

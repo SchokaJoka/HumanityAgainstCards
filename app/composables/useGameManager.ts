@@ -76,6 +76,15 @@ export function useGameManager() {
     }
   };
 
+  watch([players, playerId], ([nextPlayers, nextPlayerId]) => {
+    if (!nextPlayerId) return;
+    const self = (nextPlayers ?? []).find(
+      (player: any) => player.user_id === nextPlayerId,
+    );
+    if (!self || typeof self.status !== "string") return;
+    isWhiteCardsSubmitted.value = self.status === "submitted";
+  });
+
   async function ensureGameChannelJoined(): Promise<boolean> {
     if (!gameChannel.value) return false;
 
@@ -169,7 +178,8 @@ export function useGameManager() {
 
     const isJoined = await ensureGameChannelJoined();
     if (!isJoined) {
-      errorMessage.value = "Realtime channel is not connected. Please try again.";
+      errorMessage.value =
+        "Realtime channel is not connected. Please try again.";
       isStartingGame.value = false;
       return false;
     }
@@ -261,9 +271,7 @@ export function useGameManager() {
         console.error("Unknown round status:", currentMetaData.round_status);
     }
 
-    if (roomId.value) {
-      await trackMyStatus(myPresenceStatus.value, roomId.value);
-    }
+    // Status is authoritative on the server via edge functions; avoid overwriting it here.
   }
 
   async function handleRoundStart(currentMetaData: any) {
@@ -272,19 +280,37 @@ export function useGameManager() {
 
     if (!roomId.value || !playerId.value) return;
 
+    const selfEntry = players.value.find(
+      (player) => player.user_id === playerId.value,
+    );
+    if (selfEntry && typeof selfEntry.status === "string") {
+      isWhiteCardsSubmitted.value = selfEntry.status === "submitted";
+      return;
+    }
+
     // Load player submission status
     const { data, error } = await supabase
       .from("room_members")
       .select("status")
       .eq("room_id", roomId.value)
       .eq("user_id", playerId.value)
-      .single();
+      .limit(1);
 
     if (error) {
       console.error("Error checking submission status:", error);
       return;
     }
-    isWhiteCardsSubmitted.value = data?.status === "submitted";
+
+    const status = data?.[0]?.status;
+    if (!status) {
+      console.warn(
+        "[useGameManager] No room_members row found for current user; check join_room or RLS.",
+      );
+      isWhiteCardsSubmitted.value = false;
+      return;
+    }
+
+    isWhiteCardsSubmitted.value = status === "submitted";
   }
 
   async function handleRoundSubmitted(currentMetaData: any) {

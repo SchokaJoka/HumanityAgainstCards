@@ -30,9 +30,40 @@ Deno.serve(async (req: Request) => {
   }
   const { room_id } = body;
 
+  const { data: room, error: roomErr } = await supabase
+    .from("rooms")
+    .select("metadata")
+    .eq("id", room_id)
+    .single();
+
+  if (roomErr) {
+    return new Response(
+      JSON.stringify({ error: roomErr.message || roomErr }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  const metadata = (room?.metadata ?? {}) as Record<string, any>;
+  const resetMetadata = {
+    ...metadata,
+    round_status: "lobby",
+    black_card: null,
+    czar_id: null,
+    current_winner: null,
+    round: null,
+    handSize: null,
+    set_id: null,
+    played_black_cards: [],
+    played_white_cards: [],
+    submitted_white_cards: [],
+  };
+
   const { error: updateErr } = await supabase
     .from("rooms")
-    .update({ metadata: { round_status: "lobby" } })
+    .update({ metadata: resetMetadata })
     .eq("id", room_id);
 
   if (updateErr) {
@@ -43,6 +74,32 @@ Deno.serve(async (req: Request) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
+  }
+
+  const cleanupResults = await Promise.all([
+    supabase.from("hand_cards").delete().eq("room_id", room_id),
+    supabase.from("remaining_white_cards").delete().eq("room_id", room_id),
+    supabase.from("remaining_black_cards").delete().eq("room_id", room_id),
+    supabase
+      .from("room_members")
+      .update({
+        status: "waiting",
+        points: 0,
+        metadata: { submitted_cards: [] },
+      })
+      .eq("room_id", room_id),
+  ]);
+
+  for (const result of cleanupResults) {
+    if (result.error) {
+      return new Response(
+        JSON.stringify({ error: result.error.message || result.error }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
   }
 
   return new Response(JSON.stringify({ success: true }), {

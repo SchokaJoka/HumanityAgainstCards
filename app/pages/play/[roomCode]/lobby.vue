@@ -6,7 +6,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 const user = useSupabaseUser();
 const supabase = useSupabaseClient();
 
-const isJoiningGame = ref(false);
+const isRoomNavigation = useState<boolean>("isRoomNavigation", () => false);
 
 const route = useRoute();
 const roomId = ref<string | null>(null);
@@ -58,7 +58,6 @@ const {
   enterRoom,
   joinRoom,
   deletePlayerFromRoomTable,
-  insertPlayerInRoomTable,
   markMemberInactive,
   setupBroadcastListeners,
   ensureChannelSubscribed,
@@ -122,32 +121,28 @@ async function startGame() {
     return;
   }
 
-  // Ensure server-side room_members are present/active and match UI presence
-  try {
-    const { data: members, error: membersErr } = await supabase
-      .from("room_members")
-      .select("user_id,is_active")
-      .eq("room_id", roomId.value);
-    if (membersErr) {
-      console.warn("Failed to load room_members before start:", membersErr);
-    } else {
-      const activeMembers = (members ?? []).filter((m: any) => m.is_active !== false);
-      if (activeMembers.length !== (players.value ?? []).length) {
-        errorMessage.value = "Waiting for all players to rejoin; cannot start yet.";
-        return;
-      }
-    }
-  } catch (e) {
-    console.warn("Error checking room_members before start:", e);
+  const offlinePlayers = (players.value ?? []).filter(
+    (p: any) => p.is_active !== false && !p.is_online,
+  );
+  if (offlinePlayers.length > 0) {
+    errorMessage.value = "Waiting for all players to rejoin; cannot start yet.";
+    return;
   }
+
+  isRoomNavigation.value = true;
   if (selectedGameMode.value === "creative") {
     const ok = await initializeGame(roomId.value, roomCode.value, dev2gaps.value, null, selectedGameMode.value);
-    if (ok) navigateTo(`/play/${roomCode.value}/game/${selectedGameMode.value}`);
+    if (ok) {
+      navigateTo(`/play/${roomCode.value}/game/${selectedGameMode.value}`);
+    } else {
+      isRoomNavigation.value = false;
+    }
     return;
   } else {
     if (!selectedCollectionIds.value || selectedCollectionIds.value.length === 0) {
       errorMessage.value = "Please select at least one card set to start.";
       console.error("[Lobby] startGame aborted - missing collectionId(s)");
+      isRoomNavigation.value = false;
       return;
     }
     const ok = await initializeGame(
@@ -157,12 +152,37 @@ async function startGame() {
       selectedCollectionIds.value,
       selectedGameMode.value,
     );
-    if (ok) navigateTo(`/play/${roomCode.value}/game/${selectedGameMode.value}`);
+    if (ok) {
+      navigateTo(`/play/${roomCode.value}/game/${selectedGameMode.value}`);
+    } else {
+      isRoomNavigation.value = false;
+    }
   }
 }
 
 async function setLobbySettings(newVal: "classic" | "creative") {
   selectedGameMode.value = newVal;
+
+  const { data: roomRow, error: roomErr } = await supabase
+    .from("rooms")
+    .select("metadata")
+    .eq("id", roomId.value)
+    .single();
+
+  if (roomErr) {
+    console.warn("[Lobby] Failed to load room metadata for mode update:", roomErr);
+    return;
+  }
+
+  const metadata = (roomRow?.metadata ?? {}) as Record<string, any>;
+  const { error: updateErr } = await supabase
+    .from("rooms")
+    .update({ metadata: { ...metadata, mode: newVal } })
+    .eq("id", roomId.value);
+
+  if (updateErr) {
+    console.warn("[Lobby] Failed to persist mode change:", updateErr);
+  }
 
   const isJoined = await ensureChannelSubscribed();
   if (!isJoined) {
@@ -190,6 +210,7 @@ function setSelectedCollection(collectionId: string) {
 // onMounted, onUnmounted
 // ============================================================
 onMounted(async () => {
+  isRoomNavigation.value = false;
   // Extract room code from route
   roomCode.value = String(route.params.roomCode ?? "").toUpperCase();
 
@@ -220,7 +241,20 @@ onMounted(async () => {
     .single();
   gameMasterId.value = room?.owner ?? null;
 
-  await enterRoom(roomId.value, roomCode.value, playerId.value);
+  const joined = await enterRoom(roomId.value, roomCode.value, playerId.value);
+  if (!joined) {
+    errorMessage.value = "Game has already started. You cannot join this room.";
+    return;
+  }
+
+  const { data: roomMetaRow } = await supabase
+    .from("rooms")
+    .select("metadata")
+    .eq("id", roomId.value)
+    .single();
+  if (roomMetaRow?.metadata?.mode) {
+    selectedGameMode.value = roomMetaRow.metadata.mode;
+  }
 
   collections.value = await getCardCollections();
   if (collections.value.length > 0) {
@@ -236,23 +270,27 @@ onMounted(async () => {
 
 onBeforeRouteLeave((to) => {
   // If moving within the same room flow, preserve the channel
-  if (to.params.roomCode === route.params.roomCode) {
-    isJoiningGame.value = true;
+  const nextCode = String(to.params.roomCode ?? "").toUpperCase();
+  const currentCode = String(route.params.roomCode ?? "").toUpperCase();
+  if (nextCode && nextCode === currentCode) {
+    isRoomNavigation.value = true;
   }
 });
 
 onUnmounted(async () => {
-  if (!isLeaving.value && roomId.value && playerId.value) {
-    await markMemberInactive(roomId.value, playerId.value);
+  if (!isRoomNavigation.value) {
+    if (!isLeaving.value && roomId.value && playerId.value) {
+      await markMemberInactive(roomId.value, playerId.value);
+    }
+
+    console.info("[Lobby] Unmounted, performing cleanup");
+    await leaveRoomRealtime();
+
+    gameMasterId.value = null;
+    playerId.value = null;
+    isGameMaster.value = false;
+    roomId.value = null;
   }
-
-  console.info("[Lobby] Unmounted, performing cleanup");
-  await leaveRoomRealtime();
-
-  gameMasterId.value = null;
-  playerId.value = null;
-  isGameMaster.value = false;
-  roomId.value = null;
 });
 // ============================================================
 // UTILITIES
@@ -321,7 +359,8 @@ const dev2gaps = ref(true);
     </header>
 
     <!-- Main Content -->
-    <main class="relative flex flex-col items-center justify-start w-full max-w-2xl px-8 pt-4 gap-4 mt-[var(--sets-header-h)]"
+    <main
+      class="relative flex flex-col items-center justify-start w-full max-w-2xl px-8 pt-4 gap-4 mt-[var(--sets-header-h)]"
       :style="{
         minHeight:
           'calc(100dvh - var(--sets-header-h, 0px) - var(--lobby-footer-h, 0px))',
@@ -353,24 +392,23 @@ const dev2gaps = ref(true);
               : 'border-black'
               ">
               <img src="https://placehold.co/40" alt="Player avatar" class="size-10 rounded-full object-cover" />
-  
+
             </div>
             <span class="text-xs font-semibold transition">
               {{ player.user_id === playerId ? 'You' : player.user_name }}
             </span>
           </div>
         </section>
-  
+
         <!-- Start Game Button -->
         <section class="flex flew-row items-stretch w-full transition-all justify-between gap-4">
           <div class="flex flex-col gap-2 w-full">
-            <div
-              class="flex flex-row gap-2 items-stretch h-fit overflow-clip border-[3px] border-white">
+            <div class="flex flex-row gap-2 items-stretch h-fit overflow-clip border-[3px] border-white">
               <div class="w-full flex flex-row items-center justify-between cursor-pointer">
                 <div class="w-full py-4 px-4 text-xl font-normal" @click="copyRoomCode()">
                   {{ roomCode.trim().toUpperCase() }}
                 </div>
-  
+
                 <div class="flex flex-row items-center h-full">
                   <div @click="copyRoomCode()" class="flex items-center px-4 h-full">
                     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none">
@@ -388,7 +426,7 @@ const dev2gaps = ref(true);
                         stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                   </div>
-  
+
                 </div>
               </div>
             </div>
