@@ -1,58 +1,66 @@
 <template>
-  <div class="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-    <!-- Back button -->
-    <div class="absolute top-4 left-4">
-      <button @click="navigateTo(`/`)"
-        class="px-4 py-2 text-gray-500 border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-2">
-        ← Back to Lobby
-      </button>
-    </div>
+  <main class="w-full flex items-center justify-center">
+    <header ref="headerEl" class="fixed top-0 w-full flex flex-col items-start justify-start z-10 bg-black">
+      <div class="flex flex-row items-center w-full gap-4 p-4">
+        <div class="cursor-pointer" @click="navigateTo('/')">
+          <img src="~/assets/svg/back.svg" alt="Back" class="h-8 w-10" />
+        </div>
+        <h1 class="text-2xl font-semibold text-white">Profile</h1>
+      </div>
+    </header>
 
-    <h1 class="text-4xl font-bold mb-8">Profile</h1>
+    <main
+      class="relative flex flex-col items-center justify-start w-full h-fit max-w-3xl bg-[#FFB077] mt-[var(--auth-header-h)]">
+      <div class="flex flex-col h-full w-full">
+        <div class="h-fit flex flex-col p-12 min-h-screen">
+          <div class="max-w-md w-full mx-auto">
+            <div class="bg-white p-8 rounded shadow-md">
+              <template v-if="user && !user.is_anonymous">
+                <div class="flex flex-col items-center mb-6">
+                  <div
+                    class="w-24 h-24 rounded-full bg-white text-black border-2 border-black flex items-center justify-center text-4xl font-bold mb-3">
+                    {{ getInitials(user.user_metadata?.full_name) }} </div>
+                  <p class="text-sm text-gray-500">{{ user.email }}</p>
+                </div>
 
-    <div class="bg-white p-8 rounded shadow-md w-96">
-      <!-- Only show for authenticated (non-anonymous) users -->
-      <template v-if="user && !user.is_anonymous">
-        <!-- Avatar/Profile Picture Placeholder -->
-        <div class="flex flex-col items-center mb-6">
-          <div
-            class="w-24 h-24 rounded-full bg-blue-500 text-white flex items-center justify-center text-4xl font-bold mb-3">
-            {{ getInitials(user.user_metadata?.full_name) }}
+                <div class="mb-4">
+                  <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                  <input v-model="username" type="text" placeholder="Username"
+                    class="text-2xl font-light bg-white w-full px-4 py-2 border-2 border-black rounded"
+                    :disabled="loading" />
+                </div>
+
+                <div class="w-full flex flex-col gap-3">
+                  <Button variant="secondary" size="md" @click="updateProfile"
+                    :disabled="loading || !username || username.length < 3">
+                    {{ loading ? "Saving..." : "Save Changes" }}
+                  </Button>
+
+                  <Button variant="danger" size="md" @click="handleLogout">
+                    Logout
+                  </Button>
+                </div>
+
+                <p v-if="errorMessage" class="text-red-500 mt-4 text-sm">
+                  {{ errorMessage }}
+                </p>
+                <p v-if="successMessage" class="text-green-500 mt-4 text-sm">
+                  {{ successMessage }}
+                </p>
+              </template>
+
+              <template v-else>
+                <p class="text-center text-lg">You must be logged in to edit your profile.</p>
+                <div class="mt-4">
+                  <Button variant="secondary" size="md" @click="navigateTo('/login')">Login / Sign Up</Button>
+                </div>
+              </template>
+            </div>
           </div>
-          <p class="text-sm text-gray-500">{{ user.email }}</p>
         </div>
-
-        <!-- Edit Username -->
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Username
-          </label>
-          <input v-model="username" type="text" placeholder="Username" class="w-full px-4 py-2 border rounded"
-            :disabled="loading" />
-        </div>
-
-        <!-- Save Changes Button -->
-        <button @click="updateProfile"
-          class="w-full my-2 px-6 py-3 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-          :disabled="loading || !username || username.length < 3">
-          {{ loading ? "Saving..." : "Save Changes" }}
-        </button>
-
-        <!-- Logout Button -->
-        <button @click="handleLogout" class="w-full my-2 px-6 py-3 bg-red-500 text-white rounded hover:bg-red-600">
-          Logout
-        </button>
-
-        <!-- Messages -->
-        <p v-if="errorMessage" class="text-red-500 mt-4 text-sm">
-          {{ errorMessage }}
-        </p>
-        <p v-if="successMessage" class="text-green-500 mt-4 text-sm">
-          {{ successMessage }}
-        </p>
-      </template>
-    </div>
-  </div>
+      </div>
+    </main>
+  </main>
 </template>
 
 <script setup lang="ts">
@@ -65,7 +73,6 @@ const successMessage = ref("");
 const loading = ref(false);
 
 // update username with supabase user 
-// TODO: weiss nicht wie wichtig das ist
 watch(
   user,
   (newUser) => {
@@ -108,7 +115,6 @@ const updateProfile = async () => {
     errorMessage.value = error.message;
     console.error("Profile update error:", error);
   } else {
-    // Refresh session to get updated data
     await supabase.auth.refreshSession();
     successMessage.value = "Profile updated successfully!";
   }
@@ -116,9 +122,20 @@ const updateProfile = async () => {
   loading.value = false;
 };
 
-// TODO: sollen wir auf index umleiten?
 const handleLogout = async () => {
   await supabase.auth.signOut();
-  // navigateTo(`/`);
+  navigateTo(`/`);
 };
 </script>
+
+<style scoped>
+.tab-fade-enter-active,
+.tab-fade-leave-active {
+  transition: opacity 0.2s ease-in-out;
+}
+
+.tab-fade-enter-from,
+.tab-fade-leave-to {
+  opacity: 0;
+}
+</style>
