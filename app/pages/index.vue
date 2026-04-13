@@ -12,7 +12,7 @@
     </header>
 
     <!-- Menu overlay -->
-    <div class="fixed inset-0 z-50" :class="isMenuOpen ? 'pointer-events-auto' : 'pointer-events-none'">
+    <div class="fixed inset-0 z-40" :class="isMenuOpen ? 'pointer-events-auto' : 'pointer-events-none'">
       <div class="absolute inset-0 bg-black/40 transition-opacity duration-300"
         :class="isMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'" @click="closeMenu" />
 

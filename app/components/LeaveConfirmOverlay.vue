@@ -5,6 +5,9 @@ const props = defineProps({
     roundStatus: { type: String, required: false, default: "" },
     savedCollectionId: { type: [String, null], required: false, default: null },
     mode: { type: String as () => "classic" | "creative" | null, required: false, default: null },
+    leaveLoading: { type: Boolean, required: false, default: false },
+    backToLobbyLoading: { type: Boolean, required: false, default: false },
+    saveSetLoading: { type: Boolean, required: false, default: false },
 });
 const emit = defineEmits<{
     (e: 'close'): void;
@@ -26,12 +29,16 @@ function onSaveSet() { emit('save-set'); }
             <div class="p-5 max-w-md w-full h-full flex flex-col gap-4 items-center justify-center">
                 <div class="text-lg font-semibold">Are you sure?</div>
                 <p class="text-sm">Leaving will remove you from the game.</p>
-                <Button variant="danger" size="lg" block @click="onLeave">Leave Game</Button>
-                <Button v-if="isGameMaster" variant="primary" size="lg" block @click="onBackToLobby">Back to
+                <Button variant="danger" size="lg" block :loading="leaveLoading" :disabled="leaveLoading" @click="onLeave">
+                    Leave Game
+                    <template #loading>Leaving...</template>
+                </Button>
+                <Button v-if="isGameMaster" variant="secondary" size="lg" block :loading="backToLobbyLoading"
+                    :disabled="backToLobbyLoading" @click="onBackToLobby">Back to
                     Lobby</Button>
                 <Button v-if="isGameMaster && roundStatus === 'round_end' && !savedCollectionId && props.mode === 'creative'"
-                    variant="tertiary" size="lg" block @click="onSaveSet">Save Set</Button>
-                <Button variant="ghost" size="lg" block @click="onBackdrop">Cancel</Button>
+                    variant="tertiary" size="lg" block :loading="saveSetLoading" :disabled="saveSetLoading" @click="onSaveSet">Save Set</Button>
+                <Button variant="secondary" size="lg" block :disabled="leaveLoading || backToLobbyLoading || saveSetLoading" @click="onBackdrop">Cancel</Button>
             </div>
         </div>
     </transition>

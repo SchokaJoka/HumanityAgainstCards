@@ -25,6 +25,28 @@ const showCollections = computed(
     () => props.canSelect && isSelected.value && props.mode !== "creative",
 );
 
+const cardShadowColors = computed(() => {
+    if (isSelected.value) {
+        return {
+            "--card-shadow-color": "rgba(0,0,0,1)",
+            "--card-shadow-highlight": "rgba(255,255,255,1)",
+        };
+    }
+
+    return {
+        "--card-shadow-color": "rgba(0,0,0,1)",
+        "--card-shadow-highlight": "rgba(255,255,255,1)",
+    };
+});
+
+const cardStyle = computed(() => ({
+    ...cardShadowColors.value,
+    "--card-shadow":
+        "-5px -5px 0 -2px var(--card-shadow-color), -5px -5px 0 0 var(--card-shadow-highlight)",
+    "--card-shadow-active":
+        "-2px -2px 0 -2px var(--card-shadow-color), -2px -2px 0 0 var(--card-shadow-highlight)",
+}));
+
 function handleSelect() {
     if (!props.canSelect) return;
     emit("select", props.mode);
@@ -37,13 +59,13 @@ function handleCollectionSelect(collectionId: string) {
 </script>
 
 <template>
-    <div class="w-full rounded-lg flex flex-col justify-between p-5 transition-all" :class="[
+    <div class="selection-card border-[5px] border-black w-full flex flex-col justify-between p-5 transition-all" :class="[
         isSelected
-            ? 'bg-black text-white'
-            : 'bg-neutral-200 text-black hover:bg-neutral-300',
+            ? 'bg-[#FFF86E] text-black'
+            : 'bg-white text-black hover:bg-neutral-300',
         !canSelect && 'cursor-not-allowed opacity-50',
         canSelect && 'cursor-pointer',
-    ]" @click="handleSelect">
+    ]" :style="cardStyle" @click="handleSelect">
         <div class="flex flex-row justify-between w-full">
             <div class="flex flex-col gap-1 w-full">
                 <p class="text-3xl font-semibold">{{ title }}</p>
@@ -68,17 +90,17 @@ function handleCollectionSelect(collectionId: string) {
                     class="relative w-full flex flex-col gap-2 max-h-32 overflow-y-auto pr-1"
                 >
                 <div v-for="(collection, index) in collections" :key="collection.id"
-                    class="w-full flex flex-row items-center justify-start gap-3 px-4 py-1 rounded-full bg-white text-black transition-colors duration-250 ease-out"
+                    class="w-full flex flex-row items-center justify-start gap-3 px-4 py-1 rounded-full bg-black text-white transition-colors duration-250 ease-out"
                     :style="{ transitionDelay: `${index * 45}ms` }"
                     @click.stop="handleCollectionSelect(collection.id)">
-                    <div class="size-5 shrink-0 aspect-square rounded border-2 flex items-center justify-center border-black transition-colors duration-250 ease-out" :class="selectedCollectionIds.includes(collection.id)
+                    <div class="size-5 shrink-0 aspect-square rounded border-2 flex items-center justify-center border-white transition-colors duration-250 ease-out" :class="selectedCollectionIds.includes(collection.id)
                             ? ''
                             : ''
                         ">
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none"
                             class="transition-all duration-200 ease-out"
                             :class="selectedCollectionIds.includes(collection.id) ? 'opacity-100 scale-100 text-white' : 'opacity-0 scale-75 text-transparent'">
-                            <path d="M2 6.2L4.4 8.6L10 3" stroke="black" stroke-width="2" stroke-linecap="round"
+                            <path d="M2 6.2L4.4 8.6L10 3" stroke="white" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round" />
                         </svg>
                     </div>
@@ -91,6 +113,24 @@ function handleCollectionSelect(collectionId: string) {
 </template>
 
 <style scoped>
+.selection-card {
+    box-shadow: var(--card-shadow);
+    transform: translate3d(0, 0, 0);
+    will-change: transform, box-shadow;
+}
+
+.selection-card:active {
+    box-shadow: var(--card-shadow-active);
+    transform: translate(-3px, -3px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .selection-card.cursor-pointer:hover {
+        box-shadow: var(--card-shadow-active);
+        transform: translate(-3px, -3px);
+    }
+}
+
 .expand-enter-active,
 .expand-leave-active {
     transition: max-height 0.25s ease, opacity 0.5s ease, margin-top 0.5s ease;

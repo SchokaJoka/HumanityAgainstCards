@@ -55,6 +55,8 @@ const {
 } = useRoom();
 
 const showLeaveConfirm = ref(false);
+const isLeavingGame = ref(false);
+const isReturningToLobby = ref(false);
 
 const {
   // Variables
@@ -298,24 +300,37 @@ async function resetWinner() {
 
 async function submitWinner(winnerSubmission: any) {
   if (!isCzar.value) return;
+  if (isChoosingWinner.value) return;
 
   if (!winnerSubmission) {
     errorMessage.value = "Please pick a winner submission";
     return;
   }
 
+  isChoosingWinner.value = true;
+
   console.log("Selected winner: ", winnerSubmission);
 
-  const { data, error } = await supabase.functions.invoke("select_winner", {
-    method: "POST",
-    body: {
-      room_id: roomId.value,
-      winner: winnerSubmission,
-    },
-  });
+  try {
+    const { data, error } = await supabase.functions.invoke("select_winner", {
+      method: "POST",
+      body: {
+        room_id: roomId.value,
+        winner: winnerSubmission,
+      },
+    });
 
-  if (error) {
-    console.error("Error selecting winner:", error);
+    if (error) {
+      console.error("Error selecting winner:", error);
+      errorMessage.value = error.message || "Failed to choose winner.";
+      return;
+    }
+
+    if ((data as any)?.error) {
+      errorMessage.value = (data as any).error;
+    }
+  } finally {
+    isChoosingWinner.value = false;
   }
 }
 
@@ -506,14 +521,22 @@ const deleteWhiteCardAtGap = (gapIndex?: number) => {
 // ============================================================
 
 async function handleLeaveConfirmed() {
-  showLeaveConfirm.value = false;
-  await deletePlayerFromRoomTable(roomId.value, playerId.value);
-  navigateTo('/');
+  if (isLeavingGame.value) return;
+
+  isLeavingGame.value = true;
+  try {
+    await deletePlayerFromRoomTable(roomId.value, playerId.value);
+    navigateTo('/');
+  } finally {
+    isLeavingGame.value = false;
+  }
 }
 
 async function handleBackToLobbyConfirmed() {
-  showLeaveConfirm.value = false;
+  if (isReturningToLobby.value) return;
   if (!roomId.value) return;
+
+  isReturningToLobby.value = true;
   try {
     const { data, error } = await supabase.functions.invoke("end_game_go_back_to_lobby", {
       method: "POST",
@@ -523,6 +546,8 @@ async function handleBackToLobbyConfirmed() {
     else console.log("[EDGE] end_game_go_back_to_lobby", data);
   } catch (err) {
     console.error("Error invoking end_game_go_back_to_lobby:", err);
+  } finally {
+    isReturningToLobby.value = false;
   }
 
   navigateTo(`/play/${route.params.roomCode}/lobby`);
@@ -574,11 +599,10 @@ const dev2gaps = ref(false);
           </div>
         </div>
         <LeaveConfirmOverlay :show="showLeaveConfirm" :is-game-master="isGameMaster" :round-status="roundStatus"
+          :leave-loading="isLeavingGame" :back-to-lobby-loading="isReturningToLobby"
           @close="showLeaveConfirm = false" @leave="handleLeaveConfirmed" @back-to-lobby="handleBackToLobbyConfirmed" />
-        <Button v-if="!isCzar || roundStatus !== 'round_end'" @click="showLeaveConfirm = true" variant="primary"
+        <Button @click="showLeaveConfirm = true" :variant="isCzar ? 'primary' : 'secondary'"
           size="md" class="">Leave</Button>
-        <Button v-if="isCzar && roundStatus === 'round_end'" @click="initializeNextRound(roomId)" variant="primary"
-          size="md" class="">Continue</Button>
       </div>
       <div class="w-full flex flex-row gap-2">
         <div class="w-full text-center font-medium text-md transition-all">
@@ -695,35 +719,30 @@ const dev2gaps = ref(false);
 
       <!-- Action Buttons -->
       <section name="action-buttons" v-if="gameStarted"
-        class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] w-full flex flex-row items-center justify-center transition-all z-40">
+        class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] w-full flex flex-row items-center justify-center transition-all z-30">
         <transition name="fade" mode="out-in">
-          <Button v-if="roundStatus === 'round_start' && !isCzar && !isWhiteCardsSubmitted" @click="submitCards()"
-            :disabled="isSubmittingWhiteCards || myChosenWhiteCards.length !== numberOfCardsToPlay" variant="primary"
+          <Button v-if="roundStatus === 'round_start' && !isCzar && !isWhiteCardsSubmitted" @click="submitCards"
+            :loading="isSubmittingWhiteCards"
+            :disabled="isSubmittingWhiteCards || myChosenWhiteCards.length !== numberOfCardsToPlay" :variant="isCzar ? 'primary' : 'secondary'"
             size="md" class="" key="submit-cards">
             {{
-              isSubmittingWhiteCards
-                ? "Submitting..."
-                : myChosenWhiteCards.length === numberOfCardsToPlay
+              myChosenWhiteCards.length === numberOfCardsToPlay
                   ? "Submit"
                   : `${myChosenWhiteCards.length} / ${numberOfCardsToPlay} Cards`
             }}
+            <template #loading>Submitting...</template>
           </Button>
           <Button v-else-if="roundStatus === 'round_submitted' && isCzar"
-            @click="submitWinner(selectedPlayerSubmission)" :disabled="isChoosingWinner" variant="primary" size="md"
+            @click="submitWinner(selectedPlayerSubmission)" :loading="isChoosingWinner" :disabled="isChoosingWinner" :variant="isCzar ? 'primary' : 'secondary'" size="md"
             class="" key="choose-winner">
-            {{
-              isChoosingWinner
-                ? "Choosing..."
-                : "Choose"
-            }}
+            Choose
+            <template #loading>Choosing...</template>
           </Button>
           <Button v-else-if="roundStatus === 'round_end' && isCzar" @click="initializeNextRound(roomId)"
-            :disabled="isStartingNextRound" variant="primary" size="md" class="" key="next-round">
-            {{
-              isStartingNextRound
-                ? "Loading..."
-                : "Next Round"
-            }}
+            :loading="isStartingNextRound"
+            :disabled="isStartingNextRound" variant="secondary" size="md" class="" key="next-round">
+            Next Round
+            <template #loading>Loading...</template>
           </Button>
         </transition>
       </section>

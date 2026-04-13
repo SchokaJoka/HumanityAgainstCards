@@ -13,5 +13,4 @@ export default defineNuxtConfig({
       mode: "out-in",
     },
   },
-  // css: ["~/assets/css/main.css"],
 });

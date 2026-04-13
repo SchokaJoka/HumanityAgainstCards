@@ -47,13 +47,13 @@ const isDisabled = computed(() => props.disabled || props.loading);
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-white text-black border-black md:hover:bg-[#FFF766] md:hover:-translate-y-1 active:bg-[#00E1EF] active:-translate-x-1 active:-translate-y-1 focus-visible:ring-[#00E1EF]",
+    "bg-white text-black border-black md:hover:bg-[#FFB077] md:hover:-translate-y-1 active:bg-[#FFB077] active:-translate-x-1 active:-translate-y-1 focus-visible:ring-[#00E1EF]",
   secondary:
     "bg-black text-white border-white md:hover:-translate-y-1 active:bg-black/80 active:-translate-x-1 active:-translate-y-1 focus-visible:ring-neutral-300",
   tertiary:
     "bg-green-300 text-black border-black md:hover:bg-green-400 md:hover:-translate-y-1 active:bg-green-500 active:-translate-x-2 active:-translate-y-2 focus-visible:ring-green-500",
   danger:
-    "bg-red-600 text-white border-black md:hover:bg-red-700 md:hover:-translate-y-1 active:bg-red-800 active:-translate-x-2 active:-translate-y-2 focus-visible:ring-red-300",
+    "bg-red-600 text-white border-white md:hover:bg-red-700 md:hover:-translate-y-1 active:bg-red-800 active:-translate-x-2 active:-translate-y-2 focus-visible:ring-red-300",
   ghost:
     "bg-transparent text-gray-700 border-black md:hover:bg-gray-100 md:hover:-translate-y-1 active:bg-gray-200 active:-translate-x-2 active:-translate-y-2 focus-visible:ring-gray-200",
 };
@@ -78,8 +78,8 @@ const variantShadowColors: Record<ButtonVariant, { "--btn-shadow-color": string;
     "--btn-shadow-highlight": "rgba(187,247,208,1)",
   },
   danger: {
-    "--btn-shadow-color": "rgba(127,29,29,1)",
-    "--btn-shadow-highlight": "rgba(254,202,202,1)",
+    "--btn-shadow-color": "rgba(255,255,255,1)",
+    "--btn-shadow-highlight": "rgba(220,38,38,1)",
   },
   ghost: {
     "--btn-shadow-color": "rgba(55,65,81,1)",
