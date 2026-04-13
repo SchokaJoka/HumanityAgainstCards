@@ -1,7 +1,7 @@
 <template>
   <main class="w-full flex items-center justify-center bg-black text-white">
     <header ref="headerEl" class="fixed top-0 w-full flex items-center justify-start p-4 z-40">
-      <div v-if="!isMenuOpen" class="cursor-pointer" @click="handleMenuToggle">
+      <div class="cursor-pointer" @click="handleMenuToggle">
         <svg xmlns="http://www.w3.org/2000/svg" width="29" height="24" viewBox="0 0 29 24"
           class="stroke-white stroke-[4]">
           <line y1="2" x2="29" y2="2" />
@@ -31,18 +31,22 @@
 
         <nav class="flex flex-col gap-2 h-full justify-between">
           <div class="flex flex-col gap-2">
-            <button v-if="!user || user.is_anonymous" class="text-left px-4 py-2 hover:bg-black/20 text-3xl font-semibold transition-all"
+            <button v-if="!user || user.is_anonymous"
+              class="text-left px-4 py-2 hover:bg-black/20 text-3xl font-semibold transition-all"
               @click="handleAuthAction">
               Log in
             </button>
-            <button v-if="user && !user.is_anonymous" class="text-left px-4 py-2 hover:bg-black/20 text-3xl font-semibold transition-all"
-              @click="goToProfile">
+            <button v-if="user && !user.is_anonymous"
+              class="text-left px-4 py-2 hover:bg-black/20 text-3xl font-semibold transition-all" @click="goToProfile">
               Profile
             </button>
-            <button v-if="user && !user.is_anonymous" class="text-left px-4 py-2 hover:bg-black/20 text-3xl font-semibold transition-all" @click="navigateTo('/sets')">
+            <button v-if="user && !user.is_anonymous"
+              class="text-left px-4 py-2 hover:bg-black/20 text-3xl font-semibold transition-all"
+              @click="navigateTo('/sets')">
               Sets
             </button>
-            <button v-if="user && !user.is_anonymous" class="text-left px-4 py-2 hover:bg-black/20 text-3xl font-semibold transition-all"
+            <button v-if="user && !user.is_anonymous"
+              class="text-left px-4 py-2 hover:bg-black/20 text-3xl font-semibold transition-all"
               @click="handleAuthAction">
               Logout
             </button>
@@ -61,7 +65,8 @@
             </div>
             <div v-else
               class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-white rounded-lg border-[3px] border-black text-lg font-normal">
-              <div class="w-full flex flex-row items-center justify-between gap-1 cursor-pointer" @click="startEditGuestName">
+              <div class="w-full flex flex-row items-center justify-between gap-1 cursor-pointer"
+                @click="startEditGuestName">
                 <span class="w-full py-4 pl-4 truncate">
                   {{ user?.user_metadata?.full_name || "Guest" }}
                 </span>
@@ -76,39 +81,32 @@
     </div>
 
     <!-- Main Content -->
-    <section
-      class="relative flex flex-col items-center justify-start h-full w-full max-w-2xl px-16 gap-16"
+    <section class="relative flex flex-col items-center justify-start h-full w-full max-w-2xl px-16 gap-16"
       :style="{ paddingTop: 'var(--home-header-h, 0px)' }">
       <!-- Welcome -->
       <div class="flex flex-col items-center justify-center w-full gap-8"
         :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
         <div class="w-full flex flex-row gap-4 flex-wrap items-end justify-between">
-          <h1 class="h-fit text-4xl font-normal">
-            Cards against Waldo *uwu*
+          <h1 class="h-fit text-5xl font-extrabold mb-16">
+            Cards Against Humanity
           </h1>
-          <img class="rounded-2xl size-32" src="https://www.nicepng.com/png/full/196-1967754_wheres-wally-wally-run-wheres-waldo-face.png" alt="Waldo haha">
         </div>
         <Button @click="createGame()" variant="primary" size="lg" block class="">Create Game</Button>
         <Button @click="joinGame()" variant="primary" size="lg" block class="">Join Game</Button>
       </div>
 
       <!-- How To Play -->
-      <div class="flex flex-col gap-1 justify-center"
-        :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
-        <h1 class="w-full h-fit text-4xl font-normal">How to Play</h1>
-        <ul class="w-full h-fit text-xl font-normal px-4 list-disc list-outside pl-6">
-          <li>Each player starts with a hand of 10 white cards.</li>
-          <li>A black card is chosen at random and displayed to all players.</li>
-          <li>
-            The black card will present a number i.e. 2 Each player must play this
-            number of white cards.
-          </li>
-          <li>
-            The first player starts as the Card Czar. Their role is to select
-            their favourite white card as the winner. The winning player receives
-            1 point!
-          </li>
-        </ul>
+      <div class="flex flex-col gap-1 justify-center" :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
+        <p class="w-full h-fit text-lg font-semibold">
+          <span class="text-4xl font-extrabold block mb-4">How to Play</span>
+          Each player starts with a hand of 10 white cards.<br><br>
+          A black card is chosen at random and displayed to all players.<br><br>
+          The black card will present a number i.e. 2 Each player must play this
+          number of white cards.<br><br>
+          The first player starts as the Card Czar. Their role is to select
+          their favourite white card as the winner. The winning player receives
+          1 point!
+        </p>
       </div>
 
       <p v-if="lobbyError" class="text-red-500 mt-4 text-sm">{{ lobbyError }}</p>
