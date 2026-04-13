@@ -7,7 +7,7 @@ const user = useSupabaseUser();
 const supabase = useSupabaseClient();
 
 const route = useRoute();
-const roomId = ref<string>("");
+const roomId = useState<string | null>("roomId", () => null);
 const playerId = ref<string>("");
 const roomCode = ref<string>("");
 
@@ -29,7 +29,9 @@ const GAP_TOKEN = "[[W1tnYXBdXQ==]]";
 type TextPart = {
     text: string;
     isGap: boolean;
+    gapIndex?: number;
 };
+
 
 const { headerEl } = useHeaderHeight();
 const {
@@ -40,9 +42,9 @@ const {
     enterRoom,
     deletePlayerFromRoomTable,
     markMemberInactive,
-    trackMyStatus,
     leaveRoomRealtime,
     setRoomRoundStatus,
+    collectionCards,
 } = useRoom();
 
 const {
@@ -60,7 +62,7 @@ const {
     handleGameStateChanges,
 } = useGameManager();
 
-const { syncPlayerScoresForRoom } = usePlayerScores();
+const { playerScores, getPlayerScore, updatePlayerScoreFromMember, syncPlayerScoresForRoom } = usePlayerScores();
 
 const isSubmittingBlackCard = ref<boolean>(false);
 
@@ -78,20 +80,17 @@ const numberOfCardsToPlay = computed(() => {
 });
 
 const getTextParts = (text: string): TextPart[] => {
-    if (!text.includes(GAP_TOKEN)) {
-        return [{ text, isGap: false }];
-    }
-
+    if (!text.includes(GAP_TOKEN)) return [{ text, isGap: false }];
     const textParts = text.split(GAP_TOKEN);
     const parts: TextPart[] = [];
-
+    let gapIndex = 0;
     textParts.forEach((part, index) => {
         parts.push({ text: part, isGap: false });
         if (index < textParts.length - 1) {
-            parts.push({ text: "", isGap: true });
+            parts.push({ text: "", isGap: true, gapIndex });
+            gapIndex += 1;
         }
     });
-
     return parts;
 };
 
@@ -142,6 +141,31 @@ const selectedJudgingCardIds = computed(() => {
 const filledCardsCount = computed(() => {
     return myChosenWhiteCards.value.filter((card: string) => card.trim().length > 0).length;
 });
+
+const sortedPlayersByScore = computed(() => {
+    return [...players.value].sort((a: any, b: any) => {
+        const scoreA = playerScores.value[a.user_id] ?? 0;
+        const scoreB = playerScores.value[b.user_id] ?? 0;
+        return scoreB - scoreA;
+    });
+});
+
+const displayedPlayers = computed(() => {
+    const sorted = sortedPlayersByScore.value;
+    if (sorted.length <= 3) return sorted;
+    const first2 = sorted.slice(0, 2);
+    const last = sorted.slice(-1);
+    return [...first2, ...last];
+});
+
+const winnerPlayer = computed(() => {
+    return players.value.find((p: any) => p.user_id === winnerUserId.value);
+});
+
+const getWinnerTextAtGap = (gapIndex?: number) => {
+    if (typeof gapIndex !== "number") return null;
+    return (winnerCards.value && winnerCards.value[gapIndex]) ?? null;
+};
 
 const creativeCarouselItems = computed(() => {
     const count = numberOfCardsToPlay.value;
@@ -360,14 +384,14 @@ async function handleBackToLobbyConfirmed() {
     showLeaveConfirm.value = false;
     if (!roomId.value) return;
     try {
-        const { data, error } = await supabase.functions.invoke("initialize_game", {
+        const { data, error } = await supabase.functions.invoke("end_game_go_back_to_lobby", {
             method: "POST",
-            body: { room_id: roomId.value, action: "back_to_lobby" },
+            body: { room_id: roomId.value },
         });
-        if (error) console.error("[EDGE] back_to_lobby error:", error);
-        else console.log("[EDGE] back_to_lobby", data);
+        if (error) console.error("[EDGE] end_game_go_back_to_lobby error:", error);
+        else console.log("[EDGE] end_game_go_back_to_lobby", data);
     } catch (err) {
-        console.error("Error invoking initialize_game back_to_lobby:", err);
+        console.error("Error invoking end_game_go_back_to_lobby:", err);
     }
 
     navigateTo(`/play/${roomCode.value}/lobby`);
@@ -432,6 +456,17 @@ onBeforeRouteLeave((to) => {
 });
 
 onUnmounted(async () => {
+
+    blackCard.value = null;
+    playerSubmissions.value = [];
+    winnerUserId.value = null;
+    winnerUsername.value = "";
+    winnerCards.value = [];
+    myChosenWhiteCards.value = [];
+    selectedPlayerSubmission.value = null;
+    isWhiteCardsSubmitted.value = false;
+    isChoosingWinner.value = false;
+
     if (!isLeaving.value && roomId.value && playerId.value) {
         await markMemberInactive(roomId.value, playerId.value);
     }
@@ -536,22 +571,74 @@ const roundStatusMessage = computed(() => {
                         @select-item="pickWinner" />
                 </div>
 
-                <!-- Winner Announcement -->
-                <div v-if="roundStatus === 'round_end'" class="w-full p-4">
-                    <div
-                        class="flex flex-row items-center justify-start gap-4 bg-gray-100 p-4 rounded-lg transition-all">
-                        <div v-for="(text, index) in winnerCards" :key="index"
-                            class="relative w-full min-h-48 max-w-36 rounded-lg shadow-lg bg-white p-3 font-medium text-sm transition-all">
-                            {{ text }}
-                            <div class="absolute bottom-2 right-3 text-xs text-red-500">
-                                {{ winnerUsername }}
-                            </div>
-                            <div class="absolute bottom-2 left-3 text-xs text-gray-400">
-                                {{ index + 1 }}
+                <!-- Round End Section (matches classic UI) -->
+                <section name="round-end" v-if="gameStarted && roundStatus === 'round_end'"
+                    class="w-full mt-[var(--sets-header-h)] h-[calc(100dvh-var(--sets-header-h))] flex flex-col justify-start items-center gap-4 p-4">
+
+                    <!-- Winner Submission -->
+                    <div class="w-full flex flex-row justify-around items-stretch gap-2 max-w-2xl">
+                        <!-- Black Card -->
+                        <div v-if="blackCard"
+                            class="bg-black h-64 w-full rounded-xl p-4 font-bold border-2 border-black z-10">
+                            <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
+                                :class="part.isGap ? 'text-violet-500' : 'text-white'">
+                                {{ part.isGap ? getWinnerTextAtGap(part.gapIndex) || '________'
+                                    : part.text }}
+                            </span>
+                        </div>
+                        <!-- Winner White Cards -->
+                        <div class="w-full min-h-full flex flex-col">
+                            <div v-for="(cardText, index) in winnerCards"
+                                class="bg-white p-4 pr-8 shadow-xl h-full relative rounded-t-xl border-black border-x-2 border-t-2"
+                                :class="[
+                                    index === winnerCards.length - 1 ? 'rounded-b-xl border-b-2' : '',
+                                    index === 0 ? 'pb-8' : '-mt-6 pb-16'
+                                ]">
+                                <span class="text-black font-bold">
+                                    {{ cardText }}
+                                </span>
+                                <div
+                                    class="absolute top-2 right-2 size-8 p-[0.1rem] flex items-center justify-center bg-white rounded-full text-xs font-bold">
+                                    <div
+                                        class="bg-black size-full rounded-full flex items-center justify-center text-white font-bold">
+                                        {{ index + 1 || 'error' }}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+
+                    <!-- Player Scores -->
+                    <div class="w-full h-full flex flex-col max-w-2xl gap-4 p-4 overflow-y-auto">
+                        <TransitionGroup name="fade">
+                            <div v-for="(player, index) in displayedPlayers" :key="player.user_id" :class="[
+                                'w-full flex flex-row justify-between items-stretch border-[3px] ',
+                                index === displayedPlayers.length - 1 ? 'bg-black text-white border-white' : 'bg-white text-black border-black'
+                            ]">
+                                <div class="w-full flex flex-row items-center">
+                                    <div class="text-2xl flex items-center h-full px-4"
+                                        :class="index === displayedPlayers.length - 1 ? 'bg-white text-black' : 'bg-black text-white'">
+                                        {{ index === displayedPlayers.length - 1 ? 'Last' : index + 1 + '.' }}
+                                    </div>
+                                    <div class="flex flex-row w-full py-2 px-4 items-center justify-between">
+                                        <div class="flex flex-row items-center gap-2">
+                                            <div class="border-2 rounded-full flex items-center justify-center text-white font-bold mb-1 size-12"
+                                                :class="index === displayedPlayers.length - 1 ? 'border-white' : 'border-black'">
+                                                <img class="rounded-full size-10" src="https://placehold.co/50x50" />
+                                            </div>
+                                            <div class="">{{ player.user_name }}</div>
+                                        </div>
+                                        <div
+                                            class="bg-black rounded-full flex items-center justify-center text-white font-bold mb-1 size-10">
+                                            <span>{{ getPlayerScore(player.user_id) }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </TransitionGroup>
+                    </div>
+                </section>
+
             </TransitionGroup>
         </section>
 
