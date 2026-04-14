@@ -245,11 +245,13 @@ export function useGameManager() {
     }
   }
 
-  async function handleGameStateChanges(currentMetaData: any) {
+  async function handleGameStateChanges(currentMetaData: any, roomCode: string) {
     updateIfChanged(blackCard, currentMetaData.black_card ?? null);
     updateIfChanged(gameState, currentMetaData);
     updateIfChanged(roundStatus, currentMetaData.round_status);
     updateIfChanged(gameStarted, currentMetaData.round_status !== "lobby");
+
+    // await trackMyStatus(myPresenceStatus.value, roomId.value ?? "");
 
     switch (currentMetaData.round_status) {
       case "round_create_black_card":
@@ -265,7 +267,7 @@ export function useGameManager() {
         await handleRoundEnd(currentMetaData);
         break;
       case "lobby":
-        handleLobby(currentMetaData);
+        handleLobby(currentMetaData, roomCode);
         break;
       default:
         console.error("Unknown round status:", currentMetaData.round_status);
@@ -356,18 +358,12 @@ export function useGameManager() {
       currentMetaData.current_winner?.metadata?.submitted_cards;
   }
 
-  async function handleLobby(currentMetaData: any) {
+  async function handleLobby(currentMetaData: any, roomCode: string) {
     myChosenWhiteCards.value = [];
-    try {
-      const route = useRoute();
-      const roomCode = String(route.params.roomCode ?? "");
-      if (roomCode) {
-        navigateTo(`/play/${roomCode}/lobby`);
-      } else {
-        throw new Error("Cannot Navigate to Lobby! roomCode not defined.");
-      }
-    } catch (e) {
-      console.error("Error navigating to lobby:", e);
+    if (roomCode) {
+      navigateTo(`/play/${roomCode}/lobby`);
+    } else {
+      console.error("Cannot Navigate to Lobby! roomCode not defined.");
     }
   }
 

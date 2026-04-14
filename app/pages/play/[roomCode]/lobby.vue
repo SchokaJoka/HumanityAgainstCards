@@ -184,11 +184,7 @@ async function setLobbySettings(newVal: "classic" | "creative") {
     console.warn("[Lobby] Failed to persist mode change:", updateErr);
   }
 
-  const isJoined = await ensureChannelSubscribed();
-  if (!isJoined) {
-    console.warn("[Lobby] Skipping lobby_settings_updated broadcast because channel is not joined.");
-    return;
-  }
+
 
   await gameChannel.value?.send({
     type: "broadcast",

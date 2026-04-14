@@ -273,31 +273,13 @@ export function useRoom() {
   }
 
   async function ensureChannelSubscribed(): Promise<boolean> {
-    if (!gameChannel.value) {
+    console.log("[useRoom] check Channel Subscription State:", gameChannel.value);
+    if (gameChannel.value) {
+      return true
+    } else {
       console.error("[useRoom] No game channel to subscribe to.");
       return false;
     }
-
-    const state = (gameChannel.value as any).state;
-    if (state === "joined") {
-      await trackMyPresence();
-      return true;
-    }
-
-    const timeoutMs = 5000;
-    const started = Date.now();
-
-    while (Date.now() - started < timeoutMs) {
-      const currentState = (gameChannel.value as any)?.state;
-      if (currentState === "joined") return true;
-      if (currentState === "closed" || currentState === "errored") {
-        console.error("Channel subscription failed with state:", currentState);
-        return false;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-
-    return (gameChannel.value as any)?.state === "joined";
   }
 
   async function setupBroadcastListeners(roomId: string, playerId: string) {
@@ -457,11 +439,12 @@ export function useRoom() {
         if (gameMasterId.value !== payload.new.owner) {
           gameMasterId.value = payload.new.owner;
         }
-        const nextMode = payload.new.metadata?.mode;
-        if (nextMode === "classic" || nextMode === "creative") {
+        const nextMode = payload.new.metadata?.mode as "classic" | "creative";
+        if (nextMode && nextMode !== selectedGameMode.value) {
+          console.log("[POSTGRES] Game mode changed to:", nextMode);
           selectedGameMode.value = nextMode;
         }
-        handleGameStateChanges(payload.new.metadata);
+        handleGameStateChanges(payload.new.metadata, payload.new.code);
       },
     );
 
