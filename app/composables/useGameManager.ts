@@ -245,7 +245,10 @@ export function useGameManager() {
     }
   }
 
-  async function handleGameStateChanges(currentMetaData: any, roomCode: string) {
+  async function handleGameStateChanges(
+    currentMetaData: any,
+    roomCode: string,
+  ) {
     updateIfChanged(blackCard, currentMetaData.black_card ?? null);
     updateIfChanged(gameState, currentMetaData);
     updateIfChanged(roundStatus, currentMetaData.round_status);
@@ -345,7 +348,7 @@ export function useGameManager() {
     myChosenWhiteCards.value = [];
 
     playerSubmissions.value = data ?? [];
-    console.log("submittedWhiteCards: ", playerSubmissions.value);
+    console.log("PLAYERSUBMISSION: ", playerSubmissions.value);
   }
 
   async function handleRoundEnd(currentMetaData: any) {

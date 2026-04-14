@@ -41,7 +41,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: existingMember, error: memberErr } = await supabase
       .from("room_members")
-      .select("user_id, joined_at")
+      .select("*")
       .eq("room_id", room_id)
       .eq("user_id", user_id)
       .maybeSingle();
@@ -64,6 +64,7 @@ Deno.serve(async (req: Request) => {
           left_at: null,
           user_name,
           metadata: {
+            ...existingMember.metadata,
             avatar_url: avatar_url
           },
         })

@@ -37,13 +37,10 @@ Deno.serve(async (req: Request) => {
     .single();
 
   if (roomErr) {
-    return new Response(
-      JSON.stringify({ error: roomErr.message || roomErr }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return new Response(JSON.stringify({ error: roomErr.message || roomErr }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const metadata = (room?.metadata ?? {}) as Record<string, any>;
@@ -76,18 +73,42 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  const cleanupResults = await Promise.all([
-    supabase.from("hand_cards").delete().eq("room_id", room_id),
-    supabase.from("remaining_white_cards").delete().eq("room_id", room_id),
-    supabase.from("remaining_black_cards").delete().eq("room_id", room_id),
+  // Fetch all room members with their current metadata
+  const { data: room_members, error: membersErr } = await supabase
+    .from("room_members")
+    .select("id, metadata")
+    .eq("room_id", room_id);
+
+  if (membersErr) {
+    return new Response(
+      JSON.stringify({ error: membersErr.message || membersErr }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  // Build individual updates that preserve existing metadata fields
+  const memberUpdates = (room_members ?? []).map((member) =>
     supabase
       .from("room_members")
       .update({
         status: "waiting",
         points: 0,
-        metadata: { submitted_cards: [] },
+        metadata: {
+          ...(member.metadata ?? {}), // preserve avatar_url, etc.
+          submitted_cards: [],        // reset only this field
+        },
       })
-      .eq("room_id", room_id),
+      .eq("id", member.id)
+  );
+
+  const cleanupResults = await Promise.all([
+    supabase.from("hand_cards").delete().eq("room_id", room_id),
+    supabase.from("remaining_white_cards").delete().eq("room_id", room_id),
+    supabase.from("remaining_black_cards").delete().eq("room_id", room_id),
+    ...memberUpdates,
   ]);
 
   for (const result of cleanupResults) {

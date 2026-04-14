@@ -14,7 +14,7 @@ const roomId = useState<string | null>("roomId", () => null);
 const playerId = useState<string | null>("playerId", () => null);
 
 const roomCode = ref<string>("");
-
+const playerSubmissions = useState<any[]>("playerSubmissions", () => []);
 const players = useState<any[]>("players", () => []);
 const gameChannel = useState<RealtimeChannel | null>("gameChannel", () => null);
 const isGameMaster = useState<boolean>("isGameMaster", () => false);
@@ -88,7 +88,6 @@ const {
   gameState,
   roundStatus,
   blackCard,
-  playerSubmissions,
   winnerUserId,
   winnerUsername,
   winnerCards,
@@ -200,13 +199,16 @@ const round = computed(() => {
 });
 
 const judgingCards = computed(() => {
-  return playerSubmissions.value.flatMap(ps =>
+  console.log("PLAYERSUBMISSIONS", playerSubmissions.value);
+  const submissions = playerSubmissions.value.flatMap(ps =>
     (ps.metadata?.submitted_cards || []).map((cardId: string) => ({
       id: `${ps.id}-${cardId}`,
       card_id: cardId,
       submission: ps
     }))
   );
+  console.log("JUDGING CARDS:", submissions);
+  return submissions;
 });
 
 const selectedJudgingCardIds = computed(() => {
@@ -222,6 +224,15 @@ const leftSubmissions = computed(() =>
 
 const rightSubmissions = computed(() =>
   playerSubmissions.value.filter((_, index) => index % 2 === 1),
+);
+
+watch(
+  [leftSubmissions, rightSubmissions],
+  ([left, right]) => {
+    console.log("LEFT SUBMISSIONS:", left);
+    console.log("RIGHT SUBMISSIONS:", right);
+  },
+  { immediate: true },
 );
 
 

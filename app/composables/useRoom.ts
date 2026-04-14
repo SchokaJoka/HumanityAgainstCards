@@ -131,13 +131,11 @@ export function useRoom() {
 
   function mergePresenceIntoPlayers() {
     const presence = presenceByUserId.value ?? {};
-    console.log("[useRoom] Merging presence into players. Presence state:", presence);
     players.value = players.value.map((player: any) => ({
       ...player,
       is_online: !!presence[player.user_id],
     }));
 
-    console.log("[useRoom] Merged presence into players:", players.value);
   }
 
   async function refreshRoomMembers(roomId: string) {
@@ -278,7 +276,6 @@ export function useRoom() {
   }
 
   async function ensureChannelSubscribed(): Promise<boolean> {
-    console.log("[useRoom] check Channel Subscription State:", gameChannel.value);
     if (gameChannel.value) {
       return true
     } else {
