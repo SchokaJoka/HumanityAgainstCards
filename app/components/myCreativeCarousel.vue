@@ -19,12 +19,15 @@
 </template>
 
 <script setup lang="ts">
-
+// TYPES
+// ============================================================
 type CreativeInputItem = {
   id: string | number;
   text?: string;
 };
 
+// PROPS / EMITS
+// ============================================================
 const props = defineProps<{
   items: CreativeInputItem[];
   selectedIds?: Array<string>;
@@ -36,23 +39,27 @@ const emit = defineEmits<{
   (event: "blur-input"): void;
 }>();
 
+// STATE
+// ============================================================
+const isMobile = ref(false);
 const carouselContainerRef = ref<HTMLDivElement | null>(null);
 const textareaRefs = ref<Array<HTMLTextAreaElement | null>>([]);
 const current = ref(0);
 const scrollLockMs = 150;
+const spacing = 75;
+
 let lastScrollAt = 0;
-const isMobile = ref(false);
 let touchStartX = 0;
 let dragStartIndex = 0;
 let isTouchDragging = false;
-const spacing = 75;
 
+// COMPUTED
+// ============================================================
 const maxIndex = computed(() => Math.max(0, props.items.length - 1));
 
+// HELPERS
+// ============================================================
 const getCardText = (item: CreativeInputItem) => item.text ?? "";
-
-const isSelected = (item: CreativeInputItem) =>
-  !!props.selectedIds?.some((id) => String(id) === String(item.id));
 
 const setCurrent = (index: number) => {
   current.value = Math.max(0, Math.min(index, maxIndex.value));
@@ -64,12 +71,6 @@ const setTextareaRef = (
 ) => {
   const candidate = el && "$el" in el ? el.$el : el;
   textareaRefs.value[index] = candidate instanceof HTMLTextAreaElement ? candidate : null;
-};
-
-const handleCardClick = async (index: number) => {
-  setCurrent(index);
-  await nextTick();
-  textareaRefs.value[index]?.focus();
 };
 
 const getCardStyle = (item: CreativeInputItem, index: number) => {
@@ -85,6 +86,14 @@ const getCardStyle = (item: CreativeInputItem, index: number) => {
     transform: `rotateZ(${rotationDeg}deg) translateX(${translateX}px) translateY(${translateY})`,
     transformOrigin: "50% 100%",
   };
+};
+
+// HANDLERS
+// ============================================================
+const handleCardClick = async (index: number) => {
+  setCurrent(index);
+  await nextTick();
+  textareaRefs.value[index]?.focus();
 };
 
 const onCardInput = (
@@ -159,6 +168,8 @@ const handleResize = () => {
   isMobile.value = window.innerWidth < 640;
 };
 
+// WATCHERS
+// ============================================================
 watch(
   () => props.items.length,
   () => {
@@ -166,6 +177,8 @@ watch(
   },
 );
 
+// LIFECYCLE
+// ============================================================
 onMounted(() => {
   current.value = Math.floor(maxIndex.value / 2);
   isMobile.value = window.innerWidth < 640;

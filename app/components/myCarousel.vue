@@ -13,7 +13,8 @@
 </template>
 
 <script setup lang="ts">
-
+// PROPS / EMITS
+// ============================================================
 const props = defineProps<{
   items: any[];
   lookupCards: any[];
@@ -25,16 +26,21 @@ const emit = defineEmits<{
   (event: "select-item", item: any): void;
 }>();
 
+// STATE
+// ============================================================
 const carouselContainerRef = ref<HTMLDivElement | null>(null);
 const current = ref(0);
-const scrollLockMs = 150;
-let lastScrollAt = 0;
 const isMobile = ref(false);
+const scrollLockMs = 150;
+const spacing = 75;
+
+let lastScrollAt = 0;
 let touchStartX = 0;
 let dragStartIndex = 0;
 let isTouchDragging = false;
-const spacing = 75;
 
+// COMPUTED
+// ============================================================
 const maxIndex = computed(() => Math.max(0, props.items.length - 1));
 
 const cardTextById = computed(() => {
@@ -45,20 +51,13 @@ const cardTextById = computed(() => {
   return map;
 });
 
+// HELPERS
+// ============================================================
 const getCardText = (cardId: string) =>
   cardTextById.value.get(cardId) ?? "Loading...";
 
 const isSelected = (item: any) =>
   !!props.selectedIds?.some((id) => String(id) === String(item.id));
-
-const emitSelect = (item: any) => {
-  if (isTouchDragging) {
-    isTouchDragging = false;
-    return;
-  }
-
-  emit("select-item", item);
-};
 
 const getCardStyle = (item: any, index: number) => {
   const offsetFromCenter = index - current.value;
@@ -73,6 +72,17 @@ const getCardStyle = (item: any, index: number) => {
     transform: `rotateZ(${rotationDeg}deg) translateX(${translateX}px) translateY(${translateY})`,
     transformOrigin: "50% 100%",
   };
+};
+
+// HANDLERS
+// ============================================================
+const emitSelect = (item: any) => {
+  if (isTouchDragging) {
+    isTouchDragging = false;
+    return;
+  }
+
+  emit("select-item", item);
 };
 
 const handleScroll = (event: WheelEvent) => {
@@ -132,6 +142,8 @@ const handleResize = () => {
   isMobile.value = window.innerWidth < 640;
 };
 
+// WATCHERS
+// ============================================================
 watch(
   () => props.items.length,
   () => {
@@ -139,6 +151,8 @@ watch(
   },
 );
 
+// LIFECYCLE
+// ============================================================
 onMounted(() => {
   current.value = Math.floor(maxIndex.value / 2);
   isMobile.value = window.innerWidth < 640;
@@ -168,7 +182,7 @@ onUnmounted(() => {
 }
 
 .card.selected {
-  @apply bg-violet-500 border-violet-700 text-white;
+  @apply bg-violet-500 border-violet-300 text-white;
 
 }
 </style>

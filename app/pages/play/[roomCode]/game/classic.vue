@@ -303,16 +303,14 @@ async function resetWinner() {
 async function submitWinner(winnerSubmission: any) {
   if (!isCzar.value) return;
   if (isChoosingWinner.value) return;
-
+  isChoosingWinner.value = true;
+  
   if (!winnerSubmission) {
     errorMessage.value = "Please pick a winner submission";
+    isChoosingWinner.value = false;
     return;
   }
-
-  isChoosingWinner.value = true;
-
-  console.log("Selected winner: ", winnerSubmission);
-
+  
   try {
     const { data, error } = await supabase.functions.invoke("select_winner", {
       method: "POST",
@@ -325,11 +323,15 @@ async function submitWinner(winnerSubmission: any) {
     if (error) {
       console.error("Error selecting winner:", error);
       errorMessage.value = error.message || "Failed to choose winner.";
+      isChoosingWinner.value = false;
+
       return;
     }
 
     if ((data as any)?.error) {
       errorMessage.value = (data as any).error;
+      isChoosingWinner.value = false;
+      return
     }
   } finally {
     isChoosingWinner.value = false;
@@ -628,15 +630,16 @@ const dev2gaps = ref(false);
         </div>
       </div>
     </header>
-    <TransitionGroup>
+    <TransitionGroup name="section-swap" appear>
       <!-- Game Section -->
       <section name="game-section" v-if="gameStarted && roundStatus !== 'lobby' && roundStatus !== 'round_end'"
-        class="w-full mt-[var(--sets-header-h)] h-[calc(100dvh-var(--sets-header-h))] flex items-center gap-2 overflow-y-visible pb-4"
+        key="game-section"
+        class="w-full mt-[var(--sets-header-h)] h-[calc(100dvh-var(--sets-header-h))] flex items-center gap-2 overflow-y-visible pb-4 md:pb-32"
         :class="isCzar ? 'flex-col-reverse justify-start' : 'flex-col justify-start'">
-        <TransitionGroup name="fade">
+        <TransitionGroup name="stack-fade" appear>
           <!-- Black Card -->
           <div v-if="blackCard"
-            class="rounded-xl border-[3px] border-white w-52 h-64 bg-black p-4 text-normal font-bold z-10 overflow-y-auto">
+            class="rounded-xl border-[3px] border-white w-52 h-full max-h-64 bg-black p-4 text-normal font-bold z-20 overflow-y-auto">
             <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
               :class="part.isGap ? 'text-violet-400' : 'text-white'" @click="deleteWhiteCardAtGap(part.gapIndex)">
               {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "___" : part.text }}
@@ -652,7 +655,7 @@ const dev2gaps = ref(false);
           </div>
 
           <!-- Judging Area -->
-          <div v-if="roundStatus === 'round_submitted'" class="w-full overflow-visible z-20">
+          <div v-if="roundStatus === 'round_submitted'" class="w-full overflow-visible z-10 h-full">
             <MyCarouselJudging :items="judgingCards" :lookup-cards="collectionCards"
               :selected-ids="selectedJudgingCardIds" selected-class="selected-judging" @select-item="pickWinner" />
           </div>
@@ -660,118 +663,133 @@ const dev2gaps = ref(false);
       </section>
 
       <!-- Round End Section -->
-      <section name="round-end" v-if="gameStarted && roundStatus === 'round_end'"
+      <section name="round-end" v-if="gameStarted && roundStatus === 'round_end'" key="round-end-section"
         class="w-full mt-[var(--sets-header-h)] h-[calc(100dvh-var(--sets-header-h))] flex flex-col justify-start items-center gap-4 p-4">
-
-        <!-- Winner Submission -->
-        <div class="w-full flex flex-row justify-around items-stretch gap-2 max-w-2xl">
-          <!-- Black Card -->
-          <div v-if="blackCard" class="bg-black h-64 w-full rounded-xl p-4 font-bold border-2 border-black z-10">
-            <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
-              class="w-full overflow-y-auto" :class="part.isGap ? 'text-violet-500' : 'text-white'"
-              @click="deleteWhiteCardAtGap(part.gapIndex)">
-              {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "________" : part.text }}
-            </span>
+        <TransitionGroup name="stack-fade" appear>
+          <div class="w-full flex flex-row justify-around items-stretch gap-2 max-w-2xl">
+            <TransitionGroup name="stack-fade" appear>
+              <!-- Black Card -->
+              <div v-if="blackCard" class="bg-black h-64 w-full rounded-xl p-4 font-bold border-2 border-black z-10 overflow-y-auto">
+                <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
+                  class="w-full overflow-y-auto" :class="part.isGap ? 'text-violet-500' : 'text-white'"
+                  @click="deleteWhiteCardAtGap(part.gapIndex)">
+                  {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "________" : part.text }}
+                </span>
+              </div>
+              <!-- Winner White Cards -->
+              <div class="w-full min-h-full flex flex-col">
+                <div v-for="cardText, index in winnerCards"
+                  class="bg-white p-4 pr-8 shadow-xl h-full relative rounded-t-xl border-black border-x-2 border-t-2"
+                  :class="[
+                    index === winnerCards.length - 1 ? 'rounded-b-xl border-b-2' : '',
+                    index === 0 ? 'pb-8' : '-mt-6 pb-16'
+                  ]">
+                  <span class="text-black font-bold">
+                    {{collectionCards.find((c: any) => c.id === cardText)?.text || "Unknown card"}}
+                  </span>
+                  <div
+                    class="absolute top-2 right-2 size-8 p-[0.1rem] flex items-center justify-center bg-white rounded-full text-xs font-bold">
+                    <div class="bg-black size-full rounded-full flex items-center justify-center text-white font-bold">
+                      {{ index + 1 || "error" }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TransitionGroup>
           </div>
-          <!-- Winner White Cards -->
-          <div class="w-full min-h-full flex flex-col">
-            <div v-for="cardText, index in winnerCards"
-              class="bg-white p-4 pr-8 shadow-xl h-full relative rounded-t-xl border-black border-x-2 border-t-2"
-              :class="[
-                index === winnerCards.length - 1 ? 'rounded-b-xl border-b-2' : '',
-                index === 0 ? 'pb-8' : '-mt-6 pb-16'
+
+          <!-- Player Scores -->
+          <div class="w-full h-full flex flex-col max-w-2xl gap-4 overflow-y-auto">
+            <!-- Items -->
+            <TransitionGroup name="fade">
+              <div v-for="(player, index) in displayedPlayers" :key="player.user_id" :class="[
+                'w-full flex flex-row justify-between items-stretch border-[3px] ',
+                index === displayedPlayers.length - 1 ? 'bg-black text-white border-white' : 'bg-white text-black border-black'
               ]">
-              <span class="text-black font-bold">
-                {{collectionCards.find((c: any) => c.id === cardText)?.text || "Unknown card"}}
-              </span>
-              <div
-                class="absolute top-2 right-2 size-8 p-[0.1rem] flex items-center justify-center bg-white rounded-full text-xs font-bold">
-                <div class="bg-black size-full rounded-full flex items-center justify-center text-white font-bold">
-                  {{ index + 1 || "error" }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Player Scores -->
-        <div class="w-full h-full flex flex-col max-w-2xl gap-4 p-4 overflow-y-auto">
-          <!-- Items -->
-          <TransitionGroup name="fade">
-            <div v-for="(player, index) in displayedPlayers" :key="player.user_id" :class="[
-              'w-full flex flex-row justify-between items-stretch border-[3px] ',
-              index === displayedPlayers.length - 1 ? 'bg-black text-white border-white' : 'bg-white text-black border-black'
-            ]">
-              <div class="w-full flex flex-row items-center">
-                <div class="text-2xl flex items-center h-full px-4"
-                  :class="index === displayedPlayers.length - 1 ? 'bg-white text-black' : 'bg-black text-white'">
-                  {{
-                    index === displayedPlayers.length - 1 ? "Last" : index + 1 + '.'
-                  }}
-                </div>
-                <div class="flex flex-row w-full py-2 px-4 items-center justify-between">
-                  <div class="flex flex-row items-center gap-2">
+                <div class="w-full flex flex-row items-center">
+                  <div class="text-2xl flex items-center h-full px-4"
+                    :class="index === displayedPlayers.length - 1 ? 'bg-white text-black' : 'bg-black text-white'">
+                    {{
+                      index === displayedPlayers.length - 1 ? "Last" : index + 1 + '.'
+                    }}
+                  </div>
+                  <div class="flex flex-row w-full py-2 px-4 items-center justify-between">
+                    <div class="flex flex-row items-center gap-2">
+                      <div
+                        class="border-2 rounded-full flex items-center justify-center text-white font-bold mb-1 size-12"
+                        :class="index === displayedPlayers.length - 1 ? 'border-white' : 'border-black'">
+                        <img class="rounded-full size-10" src="https://placehold.co/50x50" />
+                      </div>
+                      <div class="">
+                        {{ player.user_name }}
+                      </div>
+                    </div>
                     <div
-                      class="border-2 rounded-full flex items-center justify-center text-white font-bold mb-1 size-12"
-                      :class="index === displayedPlayers.length - 1 ? 'border-white' : 'border-black'">
-                      <img class="rounded-full size-10" src="https://placehold.co/50x50" />
+                      class="bg-black rounded-full flex items-center justify-center text-white font-bold mb-1 size-10">
+                      <span>{{ getPlayerScore(player.user_id) }}</span>
                     </div>
-                    <div class="">
-                      {{ player.user_name }}
-                    </div>
-                  </div>
-                  <div class="bg-black rounded-full flex items-center justify-center text-white font-bold mb-1 size-10">
-                    <span>{{ getPlayerScore(player.user_id) }}</span>
                   </div>
                 </div>
               </div>
-            </div>
-          </TransitionGroup>
-        </div>
-      </section>
-
-      <!-- Action Buttons -->
-      <section name="action-buttons" v-if="gameStarted"
-        class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] w-full flex flex-row items-center justify-center transition-all z-30">
-        <transition name="fade" mode="out-in">
-          <Button v-if="roundStatus === 'round_start' && !isCzar && !isWhiteCardsSubmitted" @click="submitCards"
-            :loading="isSubmittingWhiteCards"
-            :disabled="isSubmittingWhiteCards || myChosenWhiteCards.length !== numberOfCardsToPlay"
-            :variant="isCzar ? 'primary' : 'secondary'" size="md" class="" key="submit-cards">
-            {{
-              myChosenWhiteCards.length === numberOfCardsToPlay
-                ? "Submit"
-                : `${myChosenWhiteCards.length} / ${numberOfCardsToPlay} Cards`
-            }}
-            <template #loading>Submitting...</template>
-          </Button>
-          <Button v-else-if="roundStatus === 'round_submitted' && isCzar"
-            @click="submitWinner(selectedPlayerSubmission)" :loading="isChoosingWinner" :disabled="isChoosingWinner"
-            :variant="isCzar ? 'primary' : 'secondary'" size="md" class="" key="choose-winner">
-            Choose
-            <template #loading>Choosing...</template>
-          </Button>
-          <Button v-else-if="roundStatus === 'round_end' && isCzar" @click="initializeNextRound(roomId)"
-            :loading="isStartingNextRound" :disabled="isStartingNextRound" variant="secondary" size="md" class=""
-            key="next-round">
-            Next Round
-            <template #loading>Loading...</template>
-          </Button>
-        </transition>
+            </TransitionGroup>
+          </div>
+        </TransitionGroup>
+        <!-- Winner Submission -->
       </section>
     </TransitionGroup>
+    <!-- Action Buttons -->
+    <section name="action-buttons" v-if="gameStarted"
+      class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] w-full flex flex-row items-center justify-center transition-all z-30">
+      <TransitionGroup name="fade">
+        <Button v-if="roundStatus === 'round_start' && !isCzar && !isWhiteCardsSubmitted" @click="submitCards"
+          :loading="isSubmittingWhiteCards"
+          :disabled="isSubmittingWhiteCards || myChosenWhiteCards.length !== numberOfCardsToPlay"
+          :variant="isCzar ? 'primary' : 'secondary'" size="md" class="transition-all" key="submit-cards">
+          {{
+            myChosenWhiteCards.length === numberOfCardsToPlay
+              ? "Submit"
+              : `${myChosenWhiteCards.length} / ${numberOfCardsToPlay} Cards`
+          }}
+          <template #loading>Submitting...</template>
+        </Button>
+        <Button v-else-if="roundStatus === 'round_submitted' && isCzar" @click="submitWinner(selectedPlayerSubmission)"
+          :loading="isChoosingWinner" :disabled="isChoosingWinner" :variant="isCzar ? 'primary' : 'secondary'" size="md"
+          class="transition-all" key="choose-winner">
+          Choose
+          <template #loading>Choosing...</template>
+        </Button>
+        <Button v-else-if="roundStatus === 'round_end' && isCzar" @click="initializeNextRound(roomId)"
+          :loading="isStartingNextRound" :disabled="isStartingNextRound" variant="secondary" size="md"
+          class="transition-all" key="next-round">
+          Next Round
+          <template #loading>Loading...</template>
+        </Button>
+      </TransitionGroup>
+    </section>
   </main>
 </template>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 300ms ease;
+.section-swap-enter-active,
+.section-swap-leave-active {
+  transition: opacity 420ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.section-swap-enter-from,
+.section-swap-leave-to {
   opacity: 0;
+  transform: translateY(12px);
+}
+
+.stack-fade-enter-active,
+.stack-fade-leave-active {
+  transition: opacity 420ms ease, transform 320ms ease;
+}
+
+.stack-fade-enter-from,
+.stack-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
 }
 
 :deep(.card.selected-judging) {

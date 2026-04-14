@@ -7,7 +7,8 @@
         @touchend="handleTouchEnd()" @touchcancel="handleTouchEnd()">
         <article v-for="(item, idx) in row" :key="String(item.id)" class="card"
           :class="isSelected(item) ? 'selected' : ''" :style="getCardStyle(idx, rowIndex)" @click="emitSelect(item)">
-          <div class="text-black w-full font-bold">{{ getCardTextForItem(item) }}</div>
+          <div class="w-full font-bold">{{ getCardTextForItem(item) }}</div>
+          <div class="absolute top-2 right-2 size-10 rounded-full flex items-center justify-center font-semibold bg-black text-white">{{ rowIndex + 1 }}</div>
         </article>
       </div>
     </div>
@@ -15,6 +16,8 @@
 </template>
 
 <script setup lang="ts">
+// PROPS / EMITS
+// ============================================================
 const props = defineProps<{
   items: any[];
   lookupCards?: any[];
@@ -25,38 +28,33 @@ const emit = defineEmits<{
   (e: "select-item", item: any): void;
 }>();
 
-const spacing = 75;
+// STATE
+// ============================================================
 const isMobile = ref(false);
 const sharedCurrent = ref(0);
 const lastScrollAt = ref(0);
 const scrollLockMs = 150;
+const spacing = 75;
 
 const touchStartX = ref<number | null>(null);
 const dragStartIndexShared = ref(0);
 const isTouchDragging = ref(false);
 
+const CARD_WIDTH_PX = 208; // w-52
+const CARD_PADDING_HORIZONTAL = 48;
+const VISIBLE_TEXT_PX = CARD_WIDTH_PX - CARD_PADDING_HORIZONTAL;
+const LINE_HEIGHT_PX = 22;
+const DEFAULT_OVERLAP_PX = 128; // current -8rem
+const MIN_OVERLAP_PX = 24;
+const MAX_EXTRA_PX = 200;
+
+// COMPUTED
+// ============================================================
 const cardTextById = computed(() => {
   const map = new Map<string, string>();
   for (const c of (props.lookupCards || [])) map.set(c.id, c.text);
   return map;
 });
-
-const getCardTextForItem = (item: any) => {
-  if (typeof item?.text === "string") return item.text;
-  const id = item?.card_id ?? item?.cardId ?? item?.id;
-  return cardTextById.value.get(id) ?? "Loading...";
-};
-
-const isSelected = (item: any) =>
-  !!props.selectedIds?.some((id) => String(id) === String(item.id));
-
-const emitSelect = (item: any) => {
-  if (isTouchDragging.value) {
-    isTouchDragging.value = false;
-    return;
-  }
-  emit("select-item", item);
-};
 
 // group by submission.user_id (stable order)
 const groups = computed(() => {
@@ -92,43 +90,12 @@ const rows = computed(() => {
 const maxIndexGlobal = computed(() => {
   return Math.max(0, (rows.value.length ? Math.max(...rows.value.map(r => r.length)) : 1) - 1);
 });
-
-watch(
-  () => rows.value.length,
-  () => {
-    sharedCurrent.value = Math.max(0, Math.min(sharedCurrent.value, maxIndexGlobal.value));
-  },
-  { immediate: true }
-);
-
 const maxIndexForRow = (rowIndex: number) =>
   Math.max(0, (rows.value[rowIndex]?.length ?? 1) - 1);
 
 const currentForRow = (rowIndex: number) => {
   return Math.min(sharedCurrent.value, maxIndexForRow(rowIndex));
 };
-
-const getCardStyle = (index: number, rowIndex = 0) => {
-  const cur = currentForRow(rowIndex);
-  const offsetFromCenter = index - cur;
-  const z = offsetFromCenter === 0 ? 30 : Math.max(1, 30 - Math.abs(offsetFromCenter));
-  const tx = offsetFromCenter * spacing;
-  const rot = offsetFromCenter * 8;
-  return {
-    zIndex: String(z),
-    transform: `rotateZ(${rot}deg) translateX(${tx}px)`,
-    transformOrigin: "50% 100%",
-  };
-};
-
-// compute overlap (rowOverlapPx) based on longest text in the back row (row 0)
-const CARD_WIDTH_PX = 208; // w-52
-const CARD_PADDING_HORIZONTAL = 48;
-const VISIBLE_TEXT_PX = CARD_WIDTH_PX - CARD_PADDING_HORIZONTAL;
-const LINE_HEIGHT_PX = 22;
-const DEFAULT_OVERLAP_PX = 128; // current -8rem
-const MIN_OVERLAP_PX = 24;
-const MAX_EXTRA_PX = 200;
 
 const rowOverlapPx = computed(() => {
   const baseRow = rows.value[0] ?? [];
@@ -153,6 +120,40 @@ const rowOverlapPx = computed(() => {
   const overlap = Math.max(MIN_OVERLAP_PX, DEFAULT_OVERLAP_PX - extraPx);
   return overlap;
 });
+
+// HELPERS
+// ============================================================
+const getCardTextForItem = (item: any) => {
+  if (typeof item?.text === "string") return item.text;
+  const id = item?.card_id ?? item?.cardId ?? item?.id;
+  return cardTextById.value.get(id) ?? "Loading...";
+};
+
+const isSelected = (item: any) =>
+  !!props.selectedIds?.some((id) => String(id) === String(item.id));
+
+const getCardStyle = (index: number, rowIndex = 0) => {
+  const cur = currentForRow(rowIndex);
+  const offsetFromCenter = index - cur;
+  const z = offsetFromCenter === 0 ? 30 : Math.max(1, 30 - Math.abs(offsetFromCenter));
+  const tx = offsetFromCenter * spacing;
+  const rot = offsetFromCenter * 8;
+  return {
+    zIndex: String(z),
+    transform: `rotateZ(${rot}deg) translateX(${tx}px)`,
+    transformOrigin: "50% 100%",
+  };
+};
+
+// HANDLERS
+// ============================================================
+const emitSelect = (item: any) => {
+  if (isTouchDragging.value) {
+    isTouchDragging.value = false;
+    return;
+  }
+  emit("select-item", item);
+};
 
 // wheel: unified
 const handleScroll = (e: WheelEvent) => {
@@ -191,33 +192,53 @@ const handleTouchEnd = () => {
   setTimeout(() => (isTouchDragging.value = false), 0);
 };
 
+const handleResize = () => {
+  isMobile.value = window.innerWidth < 640;
+};
+
+// WATCHERS
+// ============================================================
+watch(
+  () => rows.value.length,
+  () => {
+    sharedCurrent.value = Math.max(0, Math.min(sharedCurrent.value, maxIndexGlobal.value));
+  },
+  { immediate: true }
+);
+
+// LIFECYCLE
+// ============================================================
 onMounted(() => {
   isMobile.value = window.innerWidth < 640;
-  window.addEventListener("resize", () => (isMobile.value = window.innerWidth < 640));
+  window.addEventListener("resize", handleResize);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", handleResize);
 });
 </script>
 
 <style scoped>
 .judging-wrap {
-  @apply w-full flex flex-col items-center overflow-visible;
+  @apply w-full h-full flex flex-col items-end justify-end overflow-y-visible overflow-x-clip gap-10;
 }
 
 .judging-row {
-  @apply w-full flex items-center justify-center relative overflow-visible;
+  @apply w-full h-full max-h-72 flex items-center justify-center overflow-visible;
 }
 
 .judging-container {
-  @apply relative w-52 h-64;
+  @apply relative w-52 h-full flex items-center justify-center overflow-visible;
   touch-action: none;
 }
 
 .card {
-  @apply absolute w-52 min-h-52 rounded-xl shadow-xl bg-white cursor-pointer flex p-4;
+  @apply absolute w-52 h-full max-h-64 overflow-y-auto rounded-xl shadow-xl bg-white cursor-pointer flex p-4 pr-12 text-black;
   border: 3px solid black;
   transition: transform 300ms ease, background-color 200ms ease, border-color 200ms ease;
 }
 
 .card.selected {
-  @apply border-violet-400 bg-violet-100;
+  @apply border-violet-300 bg-violet-500 text-white;
 }
 </style>
