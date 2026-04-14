@@ -219,11 +219,11 @@ const selectedJudgingCardIds = computed(() => {
 });
 
 const leftSubmissions = computed(() =>
-  playerSubmissions.value.filter((_, index) => index % 2 === 0),
+  playerSubmissions.value.filter((_, index) => index % 2 === 1),
 );
 
 const rightSubmissions = computed(() =>
-  playerSubmissions.value.filter((_, index) => index % 2 === 1),
+  playerSubmissions.value.filter((_, index) => index % 2 === 0),
 );
 
 watch(
@@ -655,7 +655,7 @@ const dev2gaps = ref(false);
 </script>
 
 <template>
-  <main class="flex flex-col items-center w-full h-dvh overflow-w-hidden overflow-y-hidden transition-color" :class="roundStatus === 'round_end'
+  <main class="flex flex-col items-center w-full h-dvh overflow-w-hidden overflow-y-auto transition-color" :class="roundStatus === 'round_end'
     ? 'bg-sky-300 text-black'
     : isCzar
       ? 'bg-black text-white'
@@ -742,8 +742,8 @@ const dev2gaps = ref(false);
             <MyCarouselJudging v-if="isCzar" :items="judgingCards" :lookup-cards="collectionCards"
               :selected-ids="selectedJudgingCardIds" selected-class="selected-judging" @select-item="pickWinner" />
 
-            <div v-else class="w-full p-4">
-              <div class="flex w-full gap-2">
+            <div v-else class="w-full px-4">
+              <div class="flex w-full gap-6">
                 <!-- Left column -->
                 <div class="flex flex-1 min-w-0 flex-col items-center gap-4 pt-8">
                   <div v-if="blackCard"
@@ -759,7 +759,7 @@ const dev2gaps = ref(false);
                 </div>
 
                 <!-- Right column (offset) -->
-                <div class="flex flex-1 min-w-0 flex-col items-center gap-4 pt-8">
+    <div class="flex flex-1 min-w-0 flex-col items-center gap-4 pt-8">
                   <SubmittedCards v-for="submission in rightSubmissions" :key="submission.user_id"
                     :submission="submission" :collection-cards="collectionCards" />
                 </div>
