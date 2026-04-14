@@ -31,6 +31,28 @@ const gameStarted = useState<boolean>("gameStarted", () => false);
 
 const GAP_TOKEN: string = "[[W1tnYXBdXQ==]]";
 
+const avatarModules = import.meta.glob("~/assets/img/avatar/*.png", {
+  eager: true,
+  import: "default",
+}) as Record<string, string>;
+
+function getAvatarSrc(avatarId: unknown): string {
+  const id = String(avatarId ?? "1").trim();
+  const targetName = `avatar-${id}.png`;
+  const matchedEntry = Object.entries(avatarModules).find(([path]) =>
+    path.endsWith(targetName),
+  );
+
+  if (matchedEntry) {
+    return matchedEntry[1];
+  }
+
+  const fallbackEntry = Object.entries(avatarModules).find(([path]) =>
+    path.endsWith("avatar-1.png"),
+  );
+  return fallbackEntry?.[1] ?? "";
+}
+
 // ============================================================
 
 // COMPOSABLES
@@ -201,6 +223,7 @@ const leftSubmissions = computed(() =>
 const rightSubmissions = computed(() =>
   playerSubmissions.value.filter((_, index) => index % 2 === 1),
 );
+
 
 const winnerPlayer = computed(() => {
   return players.value.find(p => p.user_id === winnerUserId.value);
@@ -460,7 +483,7 @@ onMounted(async () => {
   // STEP 2: Conditionally load game state if game already started
   const initialMetadata = (roomMetadata?.metadata ?? null) as any;
   if (initialMetadata) {
-    if (initialMetadata.round_status !== "lobby") {
+    if (initialMetadata.roundStatus !== "lobby") {
       console.info("GAME IN PROGRESS - loading game state for player");
 
       // Load initial hand cards using the new function
@@ -641,7 +664,8 @@ const dev2gaps = ref(false);
                 ? 'border-green-300'
                 : 'border-current'
               ">
-              <img src="https://placehold.co/40" alt="Player avatar" class="size-10 rounded-full object-cover" />
+              <img :src="getAvatarSrc(player.metadata?.avatar_url)" alt="Player avatar"
+                class="size-10 rounded-full object-cover" />
 
             </div>
             <span class="text-xs font-normal transition">
@@ -651,7 +675,8 @@ const dev2gaps = ref(false);
           <div v-if="roundStatus === 'round_end' && winnerPlayer" class="flex flex-row w-full gap-2">
             <div class="flex flex-col items-center gap-1">
               <div class="flex items-center justify-center size-12 rounded-full border-2 border-black transition-all">
-                <img src="https://placehold.co/40" alt="Player avatar" class="size-10 rounded-full object-cover" />
+                <img :src="getAvatarSrc(winnerPlayer.metadata?.avatar_url)" alt="Player avatar"
+                  class="size-10 rounded-full object-cover" />
               </div>
             </div>
             <div class="flex w-full items-center justify-center text-lg font-bold overflow-clip whitespace-nowrap">
@@ -684,7 +709,7 @@ const dev2gaps = ref(false);
         :class="isCzar ? 'flex-col-reverse justify-start' : 'flex-col justify-start'">
         <TransitionGroup name="stack-fade" appear>
           <!-- Black Card -->
-          <div v-if="blackCard"
+          <div v-if="blackCard && !(roundStatus === 'round_submitted' && !isCzar)"
             class="rounded-xl border-[3px] border-white w-52 h-full max-h-64 bg-black p-4 text-normal font-bold z-20 overflow-y-auto">
             <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
               :class="part.isGap ? 'text-violet-400 black-card-text' : 'text-white black-card-text'"
@@ -706,9 +731,28 @@ const dev2gaps = ref(false);
             <MyCarouselJudging v-if="isCzar" :items="judgingCards" :lookup-cards="collectionCards"
               :selected-ids="selectedJudgingCardIds" selected-class="selected-judging" @select-item="pickWinner" />
 
-            <div v-else class="w-full max-w-5xl columns-2 sm:columns-3 lg:columns-4" style="column-gap: 1rem;">
-              <SubmittedCards v-for="submission in playerSubmissions" :key="submission.user_id" :submission="submission"
-                :collection-cards="collectionCards" />
+            <div v-else class="w-full p-4">
+              <div class="flex w-full gap-2">
+                <!-- Left column -->
+                <div class="flex flex-1 min-w-0 flex-col items-center gap-4 pt-8">
+                  <div v-if="blackCard"
+                    class="bg-black h-64 w-52 min-w-[12rem] rounded-xl p-4 font-bold border-2 border-black">
+                    <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
+                      class="w-full overflow-y-auto black-card-text"
+                      :class="part.isGap ? 'text-violet-500' : 'text-white'">
+                      {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "________" : part.text }}
+                    </span>
+                  </div>
+                  <SubmittedCards v-for="submission in leftSubmissions" :key="submission.user_id"
+                    :submission="submission" :collection-cards="collectionCards" />
+                </div>
+
+                <!-- Right column (offset) -->
+                <div class="flex flex-1 min-w-0 flex-col items-center gap-4 pt-8">
+                  <SubmittedCards v-for="submission in rightSubmissions" :key="submission.user_id"
+                    :submission="submission" :collection-cards="collectionCards" />
+                </div>
+              </div>
             </div>
           </div>
         </TransitionGroup>
@@ -771,7 +815,8 @@ const dev2gaps = ref(false);
                       <div
                         class="border-2 rounded-full flex items-center justify-center text-white font-bold mb-1 size-12"
                         :class="index === displayedPlayers.length - 1 ? 'border-white' : 'border-black'">
-                        <img class="rounded-full size-10" src="https://placehold.co/50x50" />
+                        <img class="rounded-full size-10" :src="getAvatarSrc(player.metadata?.avatar_url)"
+                          alt="Player avatar" />
                       </div>
                       <div class="">
                         {{ player.user_name }}

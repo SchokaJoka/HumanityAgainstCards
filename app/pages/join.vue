@@ -1,81 +1,84 @@
 <template>
   <main class="w-full flex items-center justify-center">
-    <header class="fixed top-0 w-full flex items-center justify-start p-4 z-10">
+    <header ref="headerEl" class="fixed top-0 w-full flex items-center justify-start p-4 z-10">
       <div class="cursor-pointer" @click="navigateTo('/')">
         <img src="~/assets/svg/back.svg" alt="Back" class="h-8 w-10" />
       </div>
     </header>
 
-    <main class="relative flex flex-col items-center justify-center min-h-svh w-full max-w-2xl p-8 gap-8">
-      <div class="flex flex-col items-center justify-center h-svh w-full p-8 gap-8">
-        <div
-          class="size-32 rounded-full border-[3px] border-black flex items-center justify-center overflow-hidden bg-white">
-          <img v-if="avatarSrc" :src="avatarSrc" alt="Avatar" class="w-full h-full object-cover" />
-          <span v-else class="text-4xl font-bold">{{ getInitials(user?.user_metadata?.full_name) }}</span>
+    <main
+      class="w-full flex flex-col items-center justify-between gap-8 max-w-3xl p-4 h-[calc(100dvh-var(--join-header-h))] mt-[var(--join-header-h)]">
+      <div class="w-full flex flex-col items-center justify-center gap-4">
+        <div class="p-2 relative size-52 rounded-full flex items-center justify-center overflow-visible">
+          <button class="absolute bottom-0 right-0" @click="showAvatarOverlay = true">
+            <div class="flex items-center justify-center rounded size-16 bg-white hover:scale-105 transition-transform">
+              <img src="~/assets/svg/pencil-filled-black.svg" alt="Edit avatar" class="h-6 w-6" />
+            </div>
+          </button>
+          <div v-if="!currentAvatar"
+            class="flex items-center w-full h-full bg-black text-7xl justify-center border-[5px] border-black rounded-full">
+            <span>
+              {{ getInitials(user?.user_metadata?.full_name) }}
+            </span>
+          </div>
+          <div v-else class="flex items-center w-full h-full text-xl border-[5px] border-white rounded-full">
+            <img :src="avatarSrc" alt="Avatar" class="w-full h-full object-cover rounded-full" />
+          </div>
         </div>
-        <Button v-if="user" variant="secondary" size="md" @click="showAvatarOverlay = true">Edit avatar</Button>
 
         <!-- Guest Name Input -->
-        <div class="flex flex-col gap-2 w-full">
+        <div class="px-4 w-full">
+          <label class="block text-2xl font-medium text-white mb-2">Username</label>
           <div v-if="editingGuestName"
-            class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-neutral-50 rounded-lg border-[3px] border-black text-3xl font-normal">
+            class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-black rounded border-[3px] border-white text-3xl font-normal text-white">
             <div class="w-full flex flex-row items-center justify-between gap-1">
               <input v-model="guestNameEdit" type="text"
                 class="w-full py-4 pl-4 bg-transparent outline-none border-0 focus:ring-0" @blur="saveGuestName"
                 @keyup.enter="saveGuestName" ref="guestNameInput" />
-              <div class="flex items-center px-5 h-full bg-neutral-200">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="black">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
+              <div class="flex items-center h-full px-5 bg-white">
+                <img src="~/assets/svg/pencil-filled-black.svg" alt="Edit name" class="h-8 w-8" />
               </div>
             </div>
           </div>
           <div v-else
-            class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-neutral-50 rounded-lg border-[3px] border-black">
-            <button @click="startEditGuestName"
-              class="w-full flex flex-row items-center justify-between gap-1 cursor-pointer hover:text-grey-500">
-              <span v-if="user?.user_metadata?.full_name" class="py-4 pl-4 text-3xl font-normal">
-                {{ user?.user_metadata?.full_name }}
+            class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-black rounded border-[3px] border-white text-3xl font-normal text-white">
+            <div class="w-full flex flex-row items-center justify-between gap-1 cursor-pointer"
+              @click="startEditGuestName">
+              <span class="w-full py-4 pl-4 truncate">
+                {{ user?.user_metadata?.full_name || "Guest" }}
               </span>
-              <span v-else class="py-4 pl-4 text-3xl text-black/50 font-normal">
-                {{ "Name" }}
-              </span>
-              <div class="flex items-center px-5 h-full bg-neutral-200">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="black">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
+              <div class="flex items-center h-full px-5 bg-white">
+                <img src="~/assets/svg/pencil-filled-black.svg" alt="Edit name" class="h-8 w-8" />
               </div>
-            </button>
+            </div>
           </div>
         </div>
 
         <!-- Login Action -->
-        <div v-if="!user || !user.is_anonymous" class="w-full flex flex-row items-center justify-end gap-4">
-          <p v-if="user" class="text-black text-md font-normal">or</p>
+        <div v-if="user ? user.is_anonymous : true"
+          class="w-full flex flex-row items-center justify-end gap-4 px-4 mt-2">
+          <p class="text-white text-xl font-normal">or</p>
           <Button variant="secondary" size="md" @click="navigateTo('/login')">
             Login / Sign Up
           </Button>
         </div>
+      </div>
 
-        <!-- Join Room by Code -->
-        <div class="flex flex-col gap-2 w-full">
-          <div
-            class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-neutral-50 rounded-lg border-[3px] border-black">
-            <div class="w-full flex flex-row items-center justify-between cursor-pointer">
-              <input v-model="roomCodeInput" placeholder="X4DD" type="text"
-                class="w-full py-4 px-4 text-3xl font-normal" @keyup.enter="joinRoom" />
-              <div @click="joinRoom" class="flex items-center px-8 bg-neutral-200 h-full">
-                <span class="text-black text-md font-normal">Join</span>
-              </div>
+      <!-- Join Room by Code -->
+      <div class="flex flex-col gap-2 w-full px-4">
+        <div class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-black rounded border-[3px] border-white">
+          <div class="w-full flex flex-row items-center justify-between cursor-pointer">
+            <input v-model="roomCodeInput" placeholder="Code" type="text"
+              class="w-full py-4 px-4 bg-black text-3xl text-white font-light" @keyup.enter="joinRoom" />
+            <div @click="joinRoom" class="flex items-center px-5 bg-white h-full">
+              <span class="text-black text-3xl font-light">Join</span>
             </div>
           </div>
-          <div v-if="errorMessage" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded"> {{
-            errorMessage }} </div>
         </div>
-
+        <div v-if="errorMessage" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded"> {{
+          errorMessage }} </div>
       </div>
+
     </main>
 
     <AvatarSelectionOverlay :show="showAvatarOverlay" :current-avatar="currentAvatar" :loading="avatarSaveLoading"
@@ -108,6 +111,7 @@ const guestNameInput = ref<HTMLInputElement | null>(null);
 const showAvatarOverlay = ref(false);
 const avatarSaveLoading = ref(false);
 const assigningDefaultAvatar = ref(false);
+const { headerEl } = useHeaderHeight("--join-header-h");
 
 const avatarImages = [
   avatar1,

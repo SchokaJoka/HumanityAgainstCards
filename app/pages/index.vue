@@ -59,7 +59,7 @@
                   class="w-full py-4 pl-4 bg-transparent outline-none border-0 focus:ring-0" @blur="saveGuestName"
                   @keyup.enter="saveGuestName" ref="guestNameInput" />
                 <div class="flex items-center h-full px-4 bg-black">
-                  <img src="~/assets/svg/boxicons_pencil-filled.svg" alt="Edit name" class="h-10 w-10" />
+                  <img src="~/assets/svg/pencil-filled.svg" alt="Edit name" class="h-10 w-10" />
                 </div>
               </div>
             </div>
@@ -71,7 +71,7 @@
                   {{ user?.user_metadata?.full_name || "Guest" }}
                 </span>
                 <div class="flex items-center h-full px-4 bg-black">
-                  <img src="~/assets/svg/boxicons_pencil-filled.svg" alt="Edit name" class="h-10 w-10" />
+                  <img src="~/assets/svg/pencil-filled.svg" alt="Edit name" class="h-10 w-10" />
                 </div>
               </div>
             </div>

@@ -432,7 +432,8 @@ const dev2gaps = ref(true);
               ? 'border-black'
               : 'border-black'
               ">
-              <img :src="getAvatarSrc(player.metadata?.avatar_url)" alt="Player avatar" class="size-10 rounded-full object-cover" />
+              <img :src="getAvatarSrc(player.metadata?.avatar_url)" alt="Player avatar"
+                class="size-10 rounded-full object-cover" />
 
             </div>
             <span class="text-xs font-semibold transition">
@@ -446,20 +447,23 @@ const dev2gaps = ref(true);
           <div class="flex flex-col gap-2 w-full">
             <div class="flex flex-row gap-2 items-stretch h-fit overflow-clip border-[3px] border-white">
               <div class="w-full flex flex-row items-center justify-between cursor-pointer">
-                <div class="w-full py-4 px-4 text-xl font-normal" @click="copyRoomCode()">
-                  {{ roomCode.trim().toUpperCase() }}
+                <div class="w-full flex flex-row py-4 px-3 text-xl font-normal items-center justify-between"
+                  @click="copyRoomCode()">
+                  <Transition name="copy-swap" mode="out-in">
+                    <div :key="isRoomCodeCopied ? 'copied' : 'room-code'" class="inline-block">
+                      {{ isRoomCodeCopied ? "Copied!" : roomCode.trim().toUpperCase() }}
+                    </div>
+                  </Transition>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <path d="M18.4903 3.46692H4.62256V18.4903" stroke="white" stroke-width="2" stroke-linecap="round"
+                      stroke-linejoin="round" />
+                    <path
+                      d="M9.24512 8.08948H23.1128V21.9572C23.1128 22.5702 22.8693 23.1581 22.4359 23.5915C22.0024 24.025 21.4145 24.2685 20.8015 24.2685H11.5564C10.9434 24.2685 10.3555 24.025 9.92208 23.5915C9.48863 23.1581 9.24512 22.5702 9.24512 21.9572V8.08948Z"
+                      stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
                 </div>
 
                 <div class="flex flex-row items-center h-full">
-                  <div @click="copyRoomCode()" class="flex items-center px-4 h-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none">
-                      <path d="M18.4903 3.46692H4.62256V18.4903" stroke="white" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round" />
-                      <path
-                        d="M9.24512 8.08948H23.1128V21.9572C23.1128 22.5702 22.8693 23.1581 22.4359 23.5915C22.0024 24.025 21.4145 24.2685 20.8015 24.2685H11.5564C10.9434 24.2685 10.3555 24.025 9.92208 23.5915C9.48863 23.1581 9.24512 22.5702 9.24512 21.9572V8.08948Z"
-                        stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                  </div>
                   <div @click="shareRoomCode()" class="flex items-center px-4 bg-white h-full">
                     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none">
                       <path
@@ -471,13 +475,6 @@ const dev2gaps = ref(true);
                 </div>
               </div>
             </div>
-            <!-- Copy Flyout -->
-            <Transition name="fade-slide">
-              <div v-if="isRoomCodeCopied"
-                class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-black px-6 py-4 rounded-lg text-sm font-medium whitespace-nowrap">
-                Copied to clipboard!
-              </div>
-            </Transition>
           </div>
           <Button v-if="isGameMaster" @click="startGame()" :disabled="isStartingGame" variant="primary" size="md"
             class="">Start</Button>
@@ -509,5 +506,22 @@ const dev2gaps = ref(true);
 .fade-slide-leave-from {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+.copy-swap-enter-active,
+.copy-swap-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.copy-swap-enter-from,
+.copy-swap-leave-to {
+  opacity: 0.5;
+  transform: scale(0.98);
+}
+
+.copy-swap-enter-to,
+.copy-swap-leave-from {
+  opacity: 1;
+  transform: scale(1);
 }
 </style>

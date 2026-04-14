@@ -11,66 +11,66 @@
       </div>
     </header>
 
-    <main class="w-full flex flex-col items-center justify-center gap-4 max-w-3xl px-8 py-4 h-dvh">
+    <main
+      class="w-full flex flex-col items-center justify-between gap-4 max-w-3xl p-4 h-[calc(100dvh-var(--profile-header-h))] mt-[var(--profile-header-h)]">
       <template v-if="user && !user.is_anonymous">
-        <div
-          class="p-2 relative size-64 rounded-full text-white flex items-center justify-center text-7xl font-bold mb-3">
-          <button class="absolute bottom-0 right-0">
-            <div class="flex items-center justify-center rounded size-16 bg-black" @click="showAvatarOverlay = true">
-              <img src="~/assets/svg/boxicons_pencil-filled.svg" alt="Edit name" class="h-8 w-8" />
-            </div>
-          </button>
-          <div v-if="!userProfile.avatar_url"
-            class="flex items-center w-full h-full bg-black text-7xl justify-center border-[5px] border-black rounded-full">
-            <span>
-              {{ getInitials(user.user_metadata?.full_name) }}
-            </span>
-          </div>
-          <div v-else class="flex items-center w-full h-full text-xl border-[5px] border-black rounded-full">
-            <img :src="avatarSrc" alt="Avatar" class="w-full h-full object-cover rounded-full" />
-          </div>
-        </div>
-        <p class="text-md text-black/80">
-          {{ user.email }}
-        </p>
-
-        <div v-if="user" class="p-4 w-full">
-          <label class="block text-2xl font-medium text-black mb-2">Username</label>
-          <div v-if="editingGuestName"
-            class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-white rounded border-[3px] border-black text-xl font-normal">
-            <div class="w-full flex flex-row items-center justify-between gap-1">
-              <input v-model="guestNameEdit" type="text"
-                class="w-full py-4 pl-4 bg-transparent outline-none border-0 focus:ring-0" @blur="saveGuestName"
-                @keyup.enter="saveGuestName" ref="guestNameInput" />
-              <div class="flex items-center h-full px-4 bg-black">
-                <img src="~/assets/svg/boxicons_pencil-filled.svg" alt="Edit name" class="h-10 w-10" />
+        <div class="w-full flex flex-col items-center justify-center gap-4">
+          <div
+            class="p-2 relative size-52 rounded-full text-white flex items-center justify-center text-7xl font-bold mb-3">
+            <button class="absolute bottom-0 right-0" @click="showAvatarOverlay = true">
+              <div
+                class="flex items-center justify-center rounded size-16 bg-black hover:scale-105 transition-transform">
+                <img src="~/assets/svg/pencil-filled.svg" alt="Edit name" class="h-8 w-8" />
               </div>
-            </div>
-          </div>
-          <div v-else
-            class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-white rounded border-[3px] border-black text-xl font-normal">
-            <div class="w-full flex flex-row items-center justify-between gap-1 cursor-pointer"
-              @click="startEditGuestName">
-              <span class="w-full py-4 pl-4 truncate">
-                {{ user?.user_metadata?.full_name || "Guest" }}
+            </button>
+            <div v-if="!userProfile.avatar_url"
+              class="flex items-center w-full h-full bg-black text-7xl justify-center border-[5px] border-black rounded-full">
+              <span>
+                {{ getInitials(user.user_metadata?.full_name) }}
               </span>
-              <div class="flex items-center h-full px-4 bg-black">
-                <img src="~/assets/svg/boxicons_pencil-filled.svg" alt="Edit name" class="h-8 w-8" />
+            </div>
+            <div v-else class="flex items-center w-full h-full text-xl border-[5px] border-black rounded-full">
+              <img :src="avatarSrc" alt="Avatar" class="w-full h-full object-cover rounded-full" />
+            </div>
+          </div>
+          <p class="text-md text-black/80">
+            {{ user.email }}
+          </p>
+
+          <div v-if="user" class="p-4 w-full">
+            <label class="block text-2xl font-medium text-black mb-2">Username</label>
+            <div v-if="editingGuestName"
+              class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-white rounded border-[3px] border-black text-3xl font-normal">
+              <div class="w-full flex flex-row items-center justify-between gap-1">
+                <input v-model="guestNameEdit" type="text"
+                  class="w-full py-4 pl-4 bg-transparent outline-none border-0 focus:ring-0" @blur="saveGuestName"
+                  @keyup.enter="saveGuestName" ref="guestNameInput" />
+                <div class="flex items-center h-full px-5 bg-black">
+                  <img src="~/assets/svg/pencil-filled.svg" alt="Edit name" class="h-8 w-8" />
+                </div>
+              </div>
+            </div>
+            <div v-else
+              class="flex flex-row gap-2 items-stretch h-fit overflow-clip bg-white rounded border-[3px] border-black text-3xl font-normal">
+              <div class="w-full flex flex-row items-center justify-between gap-1 cursor-pointer"
+                @click="startEditGuestName">
+                <span class="w-full py-4 pl-4 truncate">
+                  {{ user?.user_metadata?.full_name || "Guest" }}
+                </span>
+                <div class="flex items-center h-full px-5 bg-black">
+                  <img src="~/assets/svg/pencil-filled.svg" alt="Edit name" class="h-8 w-8" />
+                </div>
               </div>
             </div>
           </div>
         </div>
+        <div class="w-full flex flex-col items-center justify-center">
+          <Button variant="secondary" size="md" @click="handleLogout">
+            Logout
+          </Button>
+        </div>
 
-        <Button variant="secondary" size="md" @click="handleLogout">
-          Logout
-        </Button>
 
-        <p v-if="errorMessage" class="text-red-500 mt-4 text-sm">
-          {{ errorMessage }}
-        </p>
-        <p v-if="successMessage" class="text-green-500 mt-4 text-sm">
-          {{ successMessage }}
-        </p>
       </template>
 
       <template v-else>
@@ -83,6 +83,20 @@
 
     <AvatarSelectionOverlay :show="showAvatarOverlay" :current-avatar="userProfile.avatar_url"
       :loading="avatarSaveLoading" @close="showAvatarOverlay = false" @save="handleAvatarSave" />
+
+    <Transition name="fade-slide">
+      <div v-if="errorMessage"
+        class="fixed top-2 left-1/2 -translate-x-1/2 bg-white text-red-500 px-4 py-4 rounded-full border-[3px] border-black text-lg font-medium whitespace-nowrap z-50">
+        {{ errorMessage }}
+      </div>
+    </Transition>
+
+    <Transition name="fade-slide">
+      <div v-if="successMessage"
+        class="fixed top-2 left-1/2 -translate-x-1/2 bg-white text-green-500 px-4 py-4 rounded-full border-[3px] border-black text-lg font-medium whitespace-nowrap z-50">
+        {{ successMessage }}
+      </div>
+    </Transition>
   </main>
 </template>
 
@@ -131,7 +145,22 @@ const loading = ref(false);
 const showAvatarOverlay = ref(false);
 const avatarSaveLoading = ref(false);
 
-const { headerEl } = useHeaderHeight("--auth-header-h");
+const { headerEl } = useHeaderHeight("--profile-header-h");
+
+let messageClearTimer: ReturnType<typeof setTimeout> | null = null;
+watch([errorMessage, successMessage], ([nextError, nextSuccess]) => {
+  if (messageClearTimer) {
+    clearTimeout(messageClearTimer);
+    messageClearTimer = null;
+  }
+  if (nextError || nextSuccess) {
+    messageClearTimer = setTimeout(() => {
+      errorMessage.value = "";
+      successMessage.value = "";
+      messageClearTimer = null;
+    }, 3000);
+  }
+});
 
 const avatarSrc = computed(() => {
   const avatarValue = userProfile.value.avatar_url;
@@ -268,6 +297,27 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translate(-50%, 10px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 10px);
+}
+
+.fade-slide-enter-to,
+.fade-slide-leave-from {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 .tab-fade-enter-active,
 .tab-fade-leave-active {
   transition: opacity 0.2s ease-in-out;

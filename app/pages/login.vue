@@ -2,20 +2,22 @@
   <main class="w-full flex items-center justify-center">
     <header ref="headerEl" class="fixed top-0 w-full flex flex-col items-start justify-start z-10 bg-black">
       <div class="flex flex-row items-center w-full gap-4 p-4">
-        <div class="cursor-pointer" @click="navigateTo('/')">
+        <div class="cursor-pointer" @click="goBack">
           <img src="~/assets/svg/back.svg" alt="Back" class="h-8 w-10" />
         </div>
       </div>
       <div class="w-full flex flex-row justify-center z-10">
         <div class="w-full flex flex-row z-10 max-w-3xl ">
-          <button class="w-full px-3 py-4 text-xl font-semibold rounded-t-lg transition-all duration-300 ease-out" :class="activeTab === 'login'
-            ? 'text-black bg-[#FFB077]'
-            : 'text-white bg-[#D77560] hover:bg-neutral-250'" @click="switchTab('login')">
+          <button class="w-full px-3 py-4 text-xl font-semibold rounded-t-lg transition-all duration-300 ease-out"
+            :class="activeTab === 'login'
+              ? 'text-black bg-[#FFB077]'
+              : 'text-white bg-[#D77560] hover:bg-neutral-250'" @click="switchTab('login')">
             Login
           </button>
-          <button class="w-full px-3 py-4 text-xl font-semibold rounded-t-lg transition-all duration-300 ease-out" :class="activeTab === 'signup'
-            ? 'text-black bg-[#FFB077]'
-            : 'text-white bg-[#D77560] hover:bg-neutral-250'" @click="switchTab('signup')">
+          <button class="w-full px-3 py-4 text-xl font-semibold rounded-t-lg transition-all duration-300 ease-out"
+            :class="activeTab === 'signup'
+              ? 'text-black bg-[#FFB077]'
+              : 'text-white bg-[#D77560] hover:bg-neutral-250'" @click="switchTab('signup')">
             Sign Up
           </button>
         </div>
@@ -121,6 +123,15 @@ const activeTab = ref<"login" | "signup">("login");
 const errorMessage = ref("");
 const successMessage = ref("");
 const loading = ref(false);
+
+const goBack = async () => {
+  if (import.meta.client && window.history.length > 1) {
+    window.history.back();
+    return;
+  }
+
+  await navigateTo("/");
+};
 
 const getRedirectPath = () => {
   if (route.query.redirect === "createGame") {
