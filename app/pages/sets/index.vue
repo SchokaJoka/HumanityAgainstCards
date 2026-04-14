@@ -113,7 +113,6 @@ const activeTab = ref("page1");
 const { headerEl, updateHeaderHeight } = useHeaderHeight("--sets-header-h");
 
 onMounted(async () => {
-    console.log("Current user:", user.value);
     const userId = user.value?.id ?? user.value?.sub;
 
     const userCollectionsPromise = userId

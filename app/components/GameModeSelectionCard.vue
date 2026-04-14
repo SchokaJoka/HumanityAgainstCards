@@ -20,6 +20,8 @@ const emit = defineEmits<{
     selectCollection: [collectionId: string];
 }>();
 
+const isPressed = ref(false);
+
 const isSelected = computed(() => props.selectedMode === props.mode);
 const showCollections = computed(
     () => props.canSelect && isSelected.value && props.mode !== "creative",
@@ -49,12 +51,18 @@ const cardStyle = computed(() => ({
 
 function handleSelect() {
     if (!props.canSelect) return;
+    isPressed.value = false;
     emit("select", props.mode);
 }
 
 function handleCollectionSelect(collectionId: string) {
     if (!showCollections.value) return;
     emit("selectCollection", collectionId);
+}
+
+function setPressed(pressed: boolean) {
+    if (!props.canSelect) return;
+    isPressed.value = pressed;
 }
 </script>
 
@@ -65,7 +73,9 @@ function handleCollectionSelect(collectionId: string) {
             : 'bg-white text-black hover:bg-neutral-300',
         !canSelect && 'cursor-not-allowed opacity-50',
         canSelect && 'cursor-pointer',
-    ]" :style="cardStyle" @click="handleSelect">
+        canSelect && isPressed && 'is-pressed',
+    ]" :style="cardStyle" @click="handleSelect" @pointerdown="setPressed(true)" @pointerup="setPressed(false)"
+        @pointercancel="setPressed(false)" @pointerleave="setPressed(false)">
         <div class="flex flex-row justify-between w-full">
             <div class="flex flex-col gap-1 w-full">
                 <p class="text-3xl font-semibold">{{ title }}</p>
@@ -117,9 +127,16 @@ function handleCollectionSelect(collectionId: string) {
     box-shadow: var(--card-shadow);
     transform: translate3d(0, 0, 0);
     will-change: transform, box-shadow;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .selection-card:active {
+    box-shadow: var(--card-shadow-active);
+    transform: translate(-3px, -3px);
+}
+
+.selection-card.is-pressed {
     box-shadow: var(--card-shadow-active);
     transform: translate(-3px, -3px);
 }

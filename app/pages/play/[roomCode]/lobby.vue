@@ -292,6 +292,10 @@ onUnmounted(async () => {
 // UTILITIES
 // ============================================================
 const isRoomCodeCopied = ref<boolean>(false);
+const isLeavingFromBack = ref<boolean>(false);
+const isBackNavigationPending = computed(
+  () => isLeavingFromBack.value || isLeaving.value,
+);
 
 async function copyRoomCode() {
   navigator.clipboard
@@ -323,12 +327,24 @@ async function shareRoomCode() {
   }
 }
 
-function handleBackFromLobby() {
-  if (roomId.value && playerId.value) {
-    deletePlayerFromRoomTable(roomId.value, playerId.value);
+async function handleBackFromLobby() {
+  if (isBackNavigationPending.value) {
     return;
   }
-  navigateTo('/');
+
+  if (roomId.value && playerId.value) {
+    isLeavingFromBack.value = true;
+    try {
+      await deletePlayerFromRoomTable(roomId.value, playerId.value);
+    } catch (err) {
+      console.error("[Lobby] Failed to leave room from lobby header:", err);
+      isLeavingFromBack.value = false;
+    }
+    return;
+  }
+
+  isLeavingFromBack.value = true;
+  await navigateTo('/');
 }
 
 // ============================================================
@@ -344,8 +360,14 @@ const dev2gaps = ref(true);
     <!-- Header -->
     <header ref="headerEl" class="fixed top-0 w-full flex items-center justify-start p-4 bg-black z-40">
       <div class="w-full flex flex-row gap-4 items-center">
-        <div class="cursor-pointer" @click="handleBackFromLobby()">
-          <img src="~/assets/svg/back.svg" alt="Back" class="h-8 w-10" />
+        <div class="cursor-pointer" :class="{ 'pointer-events-none opacity-70': isBackNavigationPending }"
+          @click="handleBackFromLobby()">
+          <svg v-if="isBackNavigationPending" class="h-8 w-10 animate-spin" viewBox="0 0 24 24" fill="none"
+            xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" stroke="white" stroke-width="2" opacity="0.3" />
+            <path d="M21 12a9 9 0 0 0-9-9" stroke="white" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <img v-else src="~/assets/svg/back.svg" alt="Back" class="h-8 w-10" />
         </div>
         <p class="w-full text-4xl font-bold">
           Create Game
