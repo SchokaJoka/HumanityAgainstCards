@@ -79,14 +79,14 @@ function save() {
 </script>
 
 <template>
-    <div class="relative w-full flex flex-row items-center justify-between gap-4 bg-black p-5 rounded-lg border border-[3px] border-white transition-all">
+    <div
+        class="relative w-full flex flex-row items-center justify-between gap-4 bg-black p-5 rounded-lg border border-[3px] border-white transition-all">
         <transition name="edit-fade" mode="out-in">
-            <div v-if="!isEditing" class="w-full flex flex-row flex-wrap items-center gap-2 text-white text-xl font-semibold">
+            <div v-if="!isEditing"
+                class="w-full flex flex-row flex-wrap items-center gap-2 text-white text-xl font-semibold">
                 <template v-for="(part, index) in getTextParts(card.text || '')" :key="index">
-                    <div
-                        v-if="part.isGap"
-                        class="inline-flex items-center justify-center px-4 py-1 rounded-md bg-white text-black text-sm font-semibold tracking-wider"
-                    >
+                    <div v-if="part.isGap"
+                        class="inline-flex items-center justify-center px-4 py-1 rounded-md bg-white text-black text-sm font-semibold tracking-wider">
                         ___
                     </div>
                     <span v-else>{{ part.text }}</span>
@@ -94,28 +94,30 @@ function save() {
             </div>
             <div v-else class="w-full flex flex-col gap-2">
                 <div v-for="part, index in currentBlackCardText" :key="index" class="w-full flex flex-row gap-4">
-                    <div
-                        v-if="part.isGap"
-                        class="inline-flex items-center justify-center px-4 py-1 border border-white border-2 rounded-md bg-white/10 text-white text-sm font-semibold tracking-wide"
-                    >
+                    <div v-if="part.isGap"
+                        class="inline-flex items-center justify-center px-4 py-1 border border-white border-2 rounded-md bg-white/10 text-white text-sm font-semibold tracking-wide">
                         GAP
                     </div>
-                    <input v-else type="text" v-model="part.text" class="flex-1 bg-white text-black px-2 py-1 rounded" />
+                    <input v-else type="text" v-model="part.text"
+                        class="flex-1 bg-white text-black px-2 py-1 rounded" />
                 </div>
                 <div class="w-full flex flex-row gap-2">
-                    <Button v-if="!currentBlackCardText[currentBlackCardText.length - 1]?.isGap" @click="insertGap()" variant="primary"
-                        size="sm" block class="">Insert Gap</Button>
-                    <Button v-if="!currentBlackCardText[currentBlackCardText.length - 1]?.isGap" @click="insertText()" variant="primary"
-                        size="sm" block class="">Insert Text</Button>
-                    <Button v-if="currentBlackCardText.length > 1" @click="deleteLast()" variant="primary" size="sm" block
-                        class="">Delete</Button>
+                    <Button v-if="!currentBlackCardText[currentBlackCardText.length - 1]?.isGap" @click="insertGap()"
+                        variant="primary" size="sm" block class="">Insert Gap</Button>
+                    <Button v-if="currentBlackCardText[currentBlackCardText.length - 1]?.isGap" @click="insertText()"
+                        variant="primary" size="sm" block class="">Insert Text</Button>
+                    <Button v-if="currentBlackCardText.length > 1" @click="deleteLast()" variant="primary" size="sm"
+                        block class="">Delete</Button>
                 </div>
             </div>
         </transition>
         <div class="flex flex-row gap-2 items-center">
-            <div class="hover:cursor-pointer" :class="!canEdit && !isEditing ? 'opacity-40 pointer-events-none' : ''" @click="isEditing ? save() : startEdit()">
-                <svg v-if="isEditing" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M20 6L9 17L4 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+            <div class="hover:cursor-pointer" :class="!canEdit && !isEditing ? 'opacity-40 pointer-events-none' : ''"
+                @click="isEditing ? save() : startEdit()">
+                <svg v-if="isEditing" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                    fill="none">
+                    <path d="M20 6L9 17L4 12" stroke="white" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round" />
                 </svg>
                 <svg v-else xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
                     <g clip-path="url(#clip0_83_1922_black)">

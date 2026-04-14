@@ -6,7 +6,9 @@
       <article v-for="(item, index) in items" :key="String(item.id)" class="card"
         :class="isSelected(item) ? (selectedClass || 'selected') : ''" :style="getCardStyle(item, index)"
         @click="emitSelect(item)">
-        <div class="font-semibold">{{ getCardText(item.card_id) }}</div>
+        <div class="w-full min-w-0 whitespace-pre-wrap break-words font-semibold">
+          {{ getCardText(item.card_id) }}
+        </div>
       </article>
     </div>
   </div>

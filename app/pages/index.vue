@@ -151,7 +151,7 @@ const handleMenuToggle = () => {
 };
 
 const goToProfile = () => {
-  navigateTo(`/settings`);
+  navigateTo(`/profile`);
 };
 
 const startEditGuestName = () => {

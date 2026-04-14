@@ -8,8 +8,12 @@
 
     <main class="relative flex flex-col items-center justify-center min-h-svh w-full max-w-2xl p-8 gap-8">
       <div class="flex flex-col items-center justify-center h-svh w-full p-8 gap-8">
-        <div class="size-32 rounded-full border-[3px] border-black flex items-center justify-center">
+        <div
+          class="size-32 rounded-full border-[3px] border-black flex items-center justify-center overflow-hidden bg-white">
+          <img v-if="avatarSrc" :src="avatarSrc" alt="Avatar" class="w-full h-full object-cover" />
+          <span v-else class="text-4xl font-bold">{{ getInitials(user?.user_metadata?.full_name) }}</span>
         </div>
+        <Button v-if="user" variant="secondary" size="md" @click="showAvatarOverlay = true">Edit avatar</Button>
 
         <!-- Guest Name Input -->
         <div class="flex flex-col gap-2 w-full">
@@ -48,7 +52,7 @@
         </div>
 
         <!-- Login Action -->
-        <div v-if="!user || !user.is_anomymous" class="w-full flex flex-row items-center justify-end gap-4">
+        <div v-if="!user || !user.is_anonymous" class="w-full flex flex-row items-center justify-end gap-4">
           <p v-if="user" class="text-black text-md font-normal">or</p>
           <Button variant="secondary" size="md" @click="navigateTo('/login')">
             Login / Sign Up
@@ -73,10 +77,24 @@
 
       </div>
     </main>
+
+    <AvatarSelectionOverlay :show="showAvatarOverlay" :current-avatar="currentAvatar" :loading="avatarSaveLoading"
+      @close="showAvatarOverlay = false" @save="handleAvatarSave" />
   </main>
 </template>
 
 <script setup lang="ts">
+import avatar1 from "~/assets/img/avatar/avatar-1.png";
+import avatar2 from "~/assets/img/avatar/avatar-2.png";
+import avatar3 from "~/assets/img/avatar/avatar-3.png";
+import avatar4 from "~/assets/img/avatar/avatar-4.png";
+import avatar5 from "~/assets/img/avatar/avatar-5.png";
+import avatar6 from "~/assets/img/avatar/avatar-6.png";
+import avatar7 from "~/assets/img/avatar/avatar-7.png";
+import avatar8 from "~/assets/img/avatar/avatar-8.png";
+import avatar9 from "~/assets/img/avatar/avatar-9.png";
+import avatar10 from "~/assets/img/avatar/avatar-10.png";
+
 const supabase = useSupabaseClient();
 const user = useSupabaseUser();
 const roomCodeInput = ref<string>("");
@@ -87,8 +105,88 @@ const { getRoomIdByCode, getRoomMetadata } = useRoom();
 const editingGuestName = ref(!user.value);
 const guestNameEdit = ref("");
 const guestNameInput = ref<HTMLInputElement | null>(null);
+const showAvatarOverlay = ref(false);
+const avatarSaveLoading = ref(false);
+const assigningDefaultAvatar = ref(false);
+
+const avatarImages = [
+  avatar1,
+  avatar2,
+  avatar3,
+  avatar4,
+  avatar5,
+  avatar6,
+  avatar7,
+  avatar8,
+  avatar9,
+  avatar10,
+];
+
+const currentAvatar = computed(() => {
+  return String(user.value?.user_metadata?.avatar_url || "");
+});
+
+const avatarSrc = computed(() => {
+  const avatarValue = currentAvatar.value;
+  if (!avatarValue) return "";
+
+  const avatarNumber = Number(avatarValue);
+  if (!Number.isFinite(avatarNumber) || avatarNumber < 1 || avatarNumber > avatarImages.length) {
+    return "";
+  }
+
+  return avatarImages[avatarNumber - 1] || "";
+});
 
 const errorMessage = ref<string>("");
+
+const getInitials = (name: string | undefined) => {
+  if (!name) return "?";
+  const parts = name.trim().split(" ").filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0]?.[0] ?? ""}${parts[parts.length - 1]?.[0] ?? ""}`.toUpperCase() || "?";
+  }
+  return name.substring(0, 2).toUpperCase();
+};
+
+const updateAvatar = async (avatarId: string): Promise<boolean> => {
+  const { error } = await supabase.auth.updateUser({
+    data: {
+      avatar_url: avatarId,
+    },
+  });
+
+  if (error) {
+    errorMessage.value = error.message;
+    return false;
+  }
+
+  await supabase.auth.refreshSession();
+  return true;
+};
+
+const handleAvatarSave = async (avatarId: string) => {
+  avatarSaveLoading.value = true;
+  const success = await updateAvatar(avatarId);
+  if (success) {
+    showAvatarOverlay.value = false;
+  }
+  avatarSaveLoading.value = false;
+};
+
+watch(
+  user,
+  async (newUser) => {
+    if (!newUser?.is_anonymous) return;
+    if (newUser.user_metadata?.avatar_url) return;
+    if (assigningDefaultAvatar.value) return;
+
+    assigningDefaultAvatar.value = true;
+    await updateAvatar("1");
+    assigningDefaultAvatar.value = false;
+  },
+  { immediate: true },
+);
 
 const startEditGuestName = () => {
   guestNameEdit.value = user.value?.user_metadata?.full_name || "";
@@ -146,7 +244,8 @@ const joinRoom = async () => {
     }
     /* if gameStarted = true for this room, user cant join room "game has already started*/
     const roomMeta = await getRoomMetadata(roomId);
-    const roundStatus = roomMeta?.metadata?.round_status ?? null;
+    const roomMetadata = roomMeta?.metadata as { round_status?: string } | null | undefined;
+    const roundStatus = roomMetadata?.round_status ?? null;
     if (roundStatus && roundStatus !== "lobby") {
       errorMessage.value = "Game has already started. You cannot join this room.";
       return;

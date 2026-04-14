@@ -7,8 +7,12 @@
         @touchend="handleTouchEnd()" @touchcancel="handleTouchEnd()">
         <article v-for="(item, idx) in row" :key="String(item.id)" class="card"
           :class="isSelected(item) ? 'selected' : ''" :style="getCardStyle(idx, rowIndex)" @click="emitSelect(item)">
-          <div class="w-full font-bold">{{ getCardTextForItem(item) }}</div>
-          <div class="absolute top-2 right-2 size-10 rounded-full flex items-center justify-center font-semibold bg-black text-white">{{ rowIndex + 1 }}</div>
+          <div class="w-full min-w-0 whitespace-pre-wrap break-words font-bold">
+            {{ getCardTextForItem(item) }}
+          </div>
+          <div
+            class="absolute top-2 right-2 size-10 rounded-full flex items-center justify-center font-semibold bg-black text-white">
+            {{ rowIndex + 1 }}</div>
         </article>
       </div>
     </div>
@@ -228,12 +232,12 @@ onUnmounted(() => {
 }
 
 .judging-container {
-  @apply relative w-52 h-full flex items-center justify-center overflow-visible;
+  @apply relative w-52 h-full flex items-center justify-center overflow-visible cursor-pointer;
   touch-action: none;
 }
 
 .card {
-  @apply absolute w-52 h-full max-h-64 overflow-y-auto rounded-xl shadow-xl bg-white cursor-pointer flex p-4 pr-12 text-black;
+  @apply absolute w-52 h-full max-h-64 overflow-y-auto rounded-xl shadow-xl bg-white flex p-4 pr-12 text-black;
   border: 3px solid black;
   transition: transform 300ms ease, background-color 200ms ease, border-color 200ms ease;
 }

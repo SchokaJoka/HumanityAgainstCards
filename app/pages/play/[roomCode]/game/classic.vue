@@ -2,6 +2,7 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import myCarouselJudging from "~/components/myCarouselJudging.vue";
 import LeaveConfirmOverlay from '~/components/LeaveConfirmOverlay.vue';
+import SubmittedCards from "~/components/SubmittedCards.vue";
 
 // VARIABLES
 // ============================================================
@@ -105,8 +106,33 @@ const numberOfCardsToPlay = computed(() => {
   return card.number_of_gaps;
 });
 
+const selectedCards = computed(() =>
+  myChosenWhiteCards.value.filter((c: any) => !!c),
+);
+
+const selectedWhiteCardCount = computed(() => selectedCards.value.length);
+
 const selectedHandCardIds = computed(() =>
-  myChosenWhiteCards.value.map((c: any) => c.id),
+  selectedCards.value.map((c: any) => c.id),
+);
+
+const normalizeChosenSlots = (count: number) => {
+  const next = Array.from({ length: count }, (_, index) =>
+    myChosenWhiteCards.value[index] ?? null,
+  );
+  myChosenWhiteCards.value = next;
+};
+
+watch(
+  numberOfCardsToPlay,
+  (count) => {
+    if (!count) {
+      myChosenWhiteCards.value = [];
+      return;
+    }
+    normalizeChosenSlots(count);
+  },
+  { immediate: true },
 );
 
 type TextPart = {
@@ -168,6 +194,14 @@ const selectedJudgingCardIds = computed(() => {
   );
 });
 
+const leftSubmissions = computed(() =>
+  playerSubmissions.value.filter((_, index) => index % 2 === 0),
+);
+
+const rightSubmissions = computed(() =>
+  playerSubmissions.value.filter((_, index) => index % 2 === 1),
+);
+
 const winnerPlayer = computed(() => {
   return players.value.find(p => p.user_id === winnerUserId.value);
 });
@@ -198,28 +232,37 @@ async function pickCard(card: any) {
 
   whiteCardPickError.value = "";
 
-  const idx = myChosenWhiteCards.value.findIndex((c) => c.id === card.id);
-  if (idx === -1) {
-    if (myChosenWhiteCards.value.length === numberOfCardsToPlay.value) {
-      myChosenWhiteCards.value.shift(); // Remove the oldest played card from hand
-      myChosenWhiteCards.value.push(card); // Add the new card to the end of the array
+  const count = Number(numberOfCardsToPlay.value ?? 0);
+  if (!count) return;
 
-      return;
-    }
-
-    myChosenWhiteCards.value.push(card);
-  } else {
-    myChosenWhiteCards.value.splice(idx, 1);
+  if (myChosenWhiteCards.value.length !== count) {
+    normalizeChosenSlots(count);
   }
+
+  const slots = myChosenWhiteCards.value;
+
+  const idx = slots.findIndex((c: any) => c?.id === card.id);
+  if (idx !== -1) {
+    slots[idx] = null;
+    return;
+  }
+
+  const emptyIndex = slots.findIndex((c: any) => !c);
+  if (emptyIndex === -1) return;
+
+  slots[emptyIndex] = card;
 }
 
 async function resetCards() {
-  myChosenWhiteCards.value = [];
+  const count = Number(numberOfCardsToPlay.value ?? 0);
+  myChosenWhiteCards.value = count
+    ? Array.from({ length: count }, () => null)
+    : [];
   whiteCardPickError.value = "";
 }
 
 async function submitCards() {
-  if (myChosenWhiteCards.value.length === numberOfCardsToPlay.value) {
+  if (selectedWhiteCardCount.value === numberOfCardsToPlay.value) {
     if (isSubmittingWhiteCards.value) return;
     isSubmittingWhiteCards.value = true;
 
@@ -230,7 +273,7 @@ async function submitCards() {
           czar_id: czarId.value,
           user_id: playerId.value,
           room_id: roomId.value,
-          submitted_cards: myChosenWhiteCards.value,
+          submitted_cards: selectedCards.value,
         },
       });
 
@@ -245,8 +288,8 @@ async function submitCards() {
         // Remove submitted cards from local hand immediately (frontend UX).
         // Some UI items may carry `id` (hand_card.id) or `card_id` (cards.id),
         // so remove by either to avoid stale items.
-        const submittedHandIds = new Set(myChosenWhiteCards.value.map((c: any) => c.id).filter(Boolean));
-        const submittedCardIds = new Set(myChosenWhiteCards.value.map((c: any) => c.card_id || c.cardId || c.id).filter(Boolean));
+        const submittedHandIds = new Set(selectedCards.value.map((c: any) => c.id).filter(Boolean));
+        const submittedCardIds = new Set(selectedCards.value.map((c: any) => c.card_id || c.cardId || c.id).filter(Boolean));
 
         playerHandCards.value = playerHandCards.value.filter((handCard: any) => {
           if (submittedHandIds.has(handCard.id)) return false;
@@ -254,7 +297,10 @@ async function submitCards() {
           return true;
         });
 
-        myChosenWhiteCards.value = [];
+        const count = Number(numberOfCardsToPlay.value ?? 0);
+        myChosenWhiteCards.value = count
+          ? Array.from({ length: count }, () => null)
+          : [];
         whiteCardPickError.value = "";
 
         isWhiteCardsSubmitted.value = true;
@@ -275,7 +321,7 @@ async function submitCards() {
     }
   } else {
     const required = Number(numberOfCardsToPlay.value ?? 0);
-    const selected = myChosenWhiteCards.value.length;
+    const selected = selectedWhiteCardCount.value;
     const remaining = Math.max(required - selected, 0);
 
     whiteCardPickError.value =
@@ -304,13 +350,13 @@ async function submitWinner(winnerSubmission: any) {
   if (!isCzar.value) return;
   if (isChoosingWinner.value) return;
   isChoosingWinner.value = true;
-  
+
   if (!winnerSubmission) {
     errorMessage.value = "Please pick a winner submission";
     isChoosingWinner.value = false;
     return;
   }
-  
+
   try {
     const { data, error } = await supabase.functions.invoke("select_winner", {
       method: "POST",
@@ -525,9 +571,9 @@ const getWhiteCardTextAtGap = (gapIndex?: number) => {
 };
 
 const deleteWhiteCardAtGap = (gapIndex?: number) => {
-  if (!canEditChosenGaps.value || !gapIndex) return;
-  if (gapIndex >= myChosenWhiteCards.value.length) return;
-  myChosenWhiteCards.value.splice(gapIndex, 1);
+  if (!canEditChosenGaps.value || gapIndex == null) return;
+  if (gapIndex < 0 || gapIndex >= myChosenWhiteCards.value.length) return;
+  myChosenWhiteCards.value[gapIndex] = null;
 };
 // ============================================================
 
@@ -641,7 +687,8 @@ const dev2gaps = ref(false);
           <div v-if="blackCard"
             class="rounded-xl border-[3px] border-white w-52 h-full max-h-64 bg-black p-4 text-normal font-bold z-20 overflow-y-auto">
             <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
-              :class="part.isGap ? 'text-violet-400' : 'text-white'" @click="deleteWhiteCardAtGap(part.gapIndex)">
+              :class="part.isGap ? 'text-violet-400 black-card-text' : 'text-white black-card-text'"
+              @click="deleteWhiteCardAtGap(part.gapIndex)">
               {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "___" : part.text }}
             </span>
           </div>
@@ -656,8 +703,13 @@ const dev2gaps = ref(false);
 
           <!-- Judging Area -->
           <div v-if="roundStatus === 'round_submitted'" class="w-full overflow-visible z-10 h-full">
-            <MyCarouselJudging :items="judgingCards" :lookup-cards="collectionCards"
+            <MyCarouselJudging v-if="isCzar" :items="judgingCards" :lookup-cards="collectionCards"
               :selected-ids="selectedJudgingCardIds" selected-class="selected-judging" @select-item="pickWinner" />
+
+            <div v-else class="w-full max-w-5xl columns-2 sm:columns-3 lg:columns-4" style="column-gap: 1rem;">
+              <SubmittedCards v-for="submission in playerSubmissions" :key="submission.user_id" :submission="submission"
+                :collection-cards="collectionCards" />
+            </div>
           </div>
         </TransitionGroup>
       </section>
@@ -669,22 +721,23 @@ const dev2gaps = ref(false);
           <div class="w-full flex flex-row justify-around items-stretch gap-2 max-w-2xl">
             <TransitionGroup name="stack-fade" appear>
               <!-- Black Card -->
-              <div v-if="blackCard" class="bg-black h-64 w-full rounded-xl p-4 font-bold border-2 border-black z-10 overflow-y-auto">
+              <div v-if="blackCard"
+                class="bg-black h-64 w-52 min-w-[12rem] rounded-xl p-4 font-bold border-2 border-black z-10 overflow-y-auto">
                 <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
-                  class="w-full overflow-y-auto" :class="part.isGap ? 'text-violet-500' : 'text-white'"
+                  class="w-full overflow-y-auto black-card-text" :class="part.isGap ? 'text-violet-500' : 'text-white'"
                   @click="deleteWhiteCardAtGap(part.gapIndex)">
                   {{ part.isGap ? getWhiteCardTextAtGap(part.gapIndex) || "________" : part.text }}
                 </span>
               </div>
               <!-- Winner White Cards -->
-              <div class="w-full min-h-full flex flex-col">
+              <div class="w-full max-w-[26rem] min-h-full flex flex-col">
                 <div v-for="cardText, index in winnerCards"
-                  class="bg-white p-4 pr-8 shadow-xl h-full relative rounded-t-xl border-black border-x-2 border-t-2"
+                  class="bg-white p-4 pr-8 shadow-xl h-full w-full relative rounded-t-xl border-black border-x-2 border-t-2"
                   :class="[
                     index === winnerCards.length - 1 ? 'rounded-b-xl border-b-2' : '',
                     index === 0 ? 'pb-8' : '-mt-6 pb-16'
                   ]">
-                  <span class="text-black font-bold">
+                  <span class="text-black font-bold white-card-text">
                     {{collectionCards.find((c: any) => c.id === cardText)?.text || "Unknown card"}}
                   </span>
                   <div
@@ -743,12 +796,12 @@ const dev2gaps = ref(false);
       <TransitionGroup name="fade">
         <Button v-if="roundStatus === 'round_start' && !isCzar && !isWhiteCardsSubmitted" @click="submitCards"
           :loading="isSubmittingWhiteCards"
-          :disabled="isSubmittingWhiteCards || myChosenWhiteCards.length !== numberOfCardsToPlay"
+          :disabled="isSubmittingWhiteCards || selectedWhiteCardCount !== numberOfCardsToPlay"
           :variant="isCzar ? 'primary' : 'secondary'" size="md" class="transition-all" key="submit-cards">
           {{
-            myChosenWhiteCards.length === numberOfCardsToPlay
+            selectedWhiteCardCount === numberOfCardsToPlay
               ? "Submit"
-              : `${myChosenWhiteCards.length} / ${numberOfCardsToPlay} Cards`
+              : `${selectedWhiteCardCount} / ${numberOfCardsToPlay} Cards`
           }}
           <template #loading>Submitting...</template>
         </Button>
@@ -790,6 +843,16 @@ const dev2gaps = ref(false);
 .stack-fade-leave-to {
   opacity: 0;
   transform: translateY(8px) scale(0.985);
+}
+
+.black-card-text {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.white-card-text {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 :deep(.card.selected-judging) {
