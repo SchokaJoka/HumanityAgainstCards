@@ -589,7 +589,7 @@ const roundStatusMessage = computed(() => {
                     :saved-collection-id="savedCollectionId" @close="showLeaveConfirm = false"
                     @leave="handleLeaveConfirmed" @back-to-lobby="handleBackToLobbyConfirmed"
                     @save-set="handleSaveSetConfirmed" />
-                <Button @click="showLeaveConfirm = true" :variant="isCzar ? 'primary' : 'secondary'" size="md">
+                <Button @click="showLeaveConfirm = true" variant="tertiary" :class="isCzar ? 'bg-white text-black rounded border-white' : 'bg-black text-white rounded border-black'" size="md">
                     Leave
                 </Button>
             </div>

@@ -34,7 +34,7 @@
                 <div class="h-fit flex flex-col p-4 min-h-screen">
                     <div v-if="isLoading" class="flex flex-col gap-4 animate-pulse">
                         <div v-for="n in placeholderRows" :key="n"
-                            class="w-full flex items-center gap-4 bg-neutral-100 p-5 rounded-lg border border-[3px] border-black/20">
+                            class="w-full flex items-center gap-4 bg-neutral-100 p-5 rounded-lg border-[3px] border-black/20">
                             <div class="h-9 w-9 rounded bg-neutral-200" />
                             <div class="h-6 w-1/3 rounded bg-neutral-200" />
                             <div class="ml-auto h-6 w-6 rounded bg-neutral-200" />
@@ -47,11 +47,11 @@
                                 <div class="flex flex-col gap-4">
                                     <div v-for="collection in userCollections" :key="collection.id"
                                         @click="navigateTo('/sets/' + collection.id)"
-                                        class="relative w-full flex flex-row items-center gap-4 bg-neutral-50 p-5 rounded-lg border border-[3px] border-black hover:cursor-pointer">
-                                        <img src="~/assets/svg/card-set-icon.svg" alt="Card Set" class="h-9 w-9" />
+                                        class="relative w-full flex flex-row items-center gap-4 bg-neutral-50 py-5 px-2 rounded-lg border-[3px] border-black hover:cursor-pointer">
+                                        <img src="~/assets/svg/card-set-icon.svg" alt="Card Set" class="h-12 w-12" />
                                         <p class="text-black text-xl font-semibold">{{ collection.name }}</p>
                                         <div class="absolute top-2 right-1 hover:cursor-pointer"
-                                            @click.stop="openSetMenu($event, collection)">
+                                            @click.stop="openSetMenu(collection)">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="29" height="29"
                                                 viewBox="0 0 29 29" fill="none">
                                                 <path
@@ -65,14 +65,25 @@
                                                     fill="black" />
                                             </svg>
                                         </div>
+                                        <Transition name="card-menu">
+                                            <div v-if="showSetMenu && activeSet?.id === collection.id"
+                                                class="absolute right-1 top-10 z-50 min-w-[25dvw] rounded-lg bg-white p-1 text-black border-[3px] border-black"
+                                                @click.stop>
+                                                <div class="flex flex-col items-start gap-1">
+                                                    <button class="w-full hover:bg-black/10 text-left text-lg py-2 px-1 rounded" @click="renameSet">Rename</button>
+                                                    <div class="bg-black w-full h-[2px]"/>
+                                                    <button class="w-full hover:bg-red-500/10 text-left text-lg py-2 px-1 rounded" @click="openDeleteConfirm">Delete</button>
+                                                </div>
+                                            </div>
+                                        </Transition>
                                     </div>
                                 </div>
                             </div>
                             <div v-else>
                                 <div class="flex flex-col gap-4">
                                     <div v-for="collection in publicCollections" :key="collection.id"
-                                        class="relative w-full flex flex-row items-center gap-4 bg-neutral-50 p-5 rounded-lg border border-[3px] border-black hover:cursor-pointer">
-                                        <img src="~/assets/svg/card-set-icon.svg" alt="Card Set" class="h-9 w-9" />
+                                        class="relative w-full flex flex-row items-center gap-4 bg-neutral-50 py-5 px-2 rounded-lg border-[3px] border-black hover:cursor-pointer">
+                                        <img src="~/assets/svg/card-set-icon.svg" alt="Card Set" class="h-12 w-12" />
                                         <p class="text-black text-xl font-semibold">{{ collection.name }}</p>
                                     </div>
                                 </div>
@@ -83,16 +94,9 @@
             </div>
         </section>
         <!-- Set actions overlay -->
-        <div v-if="showSetMenu" class="fixed inset-0 z-40">
-            <div class="absolute inset-0 bg-black/40" @click="closeSetMenu" />
-            <div class="absolute bg-white text-black rounded p-4"
-                :style="{ top: `${setMenuPosition.top}px`, left: `${setMenuPosition.left}px` }" @click.stop>
-                <div class="flex flex-col gap-2">
-                    <button @click="renameSet">Rename</button>
-                    <button @click="openDeleteConfirm">Delete</button>
-                </div>
-            </div>
-        </div>
+        <Transition name="menu-backdrop">
+            <div v-if="showSetMenu" class="fixed inset-0 z-40" @click="closeSetMenu" />
+        </Transition>
 
         <!-- Delete confirm overlay -->
         <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 bg-black/40" @click="showDeleteConfirm = false">
@@ -135,8 +139,6 @@ const isLoading = ref(true);
 const placeholderRows = [1, 2, 3];
 
 const showSetMenu = ref(false);
-
-const setMenuPosition = ref({ top: 0, right: 0 });
 const showDeleteConfirm = ref(false);
 const activeSet = ref<CardCollections | null>(null);
 
@@ -145,24 +147,9 @@ type CardCollections = Tables<"collections">;
 const activeTab = ref("page1");
 const { headerEl, updateHeaderHeight } = useHeaderHeight("--sets-header-h");
 
-function openSetMenu(ev: MouseEvent, collection: CardCollections) {
+function openSetMenu(collection: CardCollections) {
     activeSet.value = collection;
     showSetMenu.value = true;
-
-    const target = ev.currentTarget as HTMLElement | null;
-    if (!target) return;
-
-    const rect = target.getBoundingClientRect();
-    const menuWidth = 256; // w-64
-    const padding = 8;
-
-    const right = Math.min(
-        window.innerWidth - menuWidth - padding,
-        Math.max(padding, rect.right - menuWidth)
-    );
-    const top = rect.bottom + padding;
-
-    setMenuPosition.value = { top, right };
 }
 
 function closeSetMenu() {
@@ -205,13 +192,17 @@ async function confirmDelete() {
     const userId = user.value?.id ?? user.value?.sub;
     if (!userId) return;
 
-    await supabase.from("cards").delete().eq("collection_id", activeSet.value.id);
-    await supabase
+    const { data, error } = await supabase
         .from("collections")
         .delete()
         .eq("id", activeSet.value.id)
         .eq("user_id", userId);
 
+    if (error) {
+        console.error("Error deleting cards:", error);
+        return;
+    };
+    console.log("Deleted collection:", data);
     userCollections.value = userCollections.value.filter(c => c.id !== activeSet.value?.id);
     showDeleteConfirm.value = false;
 }
@@ -254,3 +245,55 @@ onMounted(async () => {
     }
 });
 </script>
+
+<style scoped>
+.card-menu-enter-active,
+.card-menu-leave-active {
+    transition: opacity 160ms ease, transform 160ms ease;
+    transform-origin: top right;
+}
+
+.card-menu-enter-from,
+.card-menu-leave-to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+}
+
+.card-menu-enter-to,
+.card-menu-leave-from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.menu-backdrop-enter-active,
+.menu-backdrop-leave-active {
+    transition: opacity 160ms ease;
+}
+
+.menu-backdrop-enter-from,
+.menu-backdrop-leave-to {
+    opacity: 0;
+}
+
+.menu-backdrop-enter-to,
+.menu-backdrop-leave-from {
+    opacity: 1;
+}
+
+.tab-fade-enter-active,
+.tab-fade-leave-active {
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.tab-fade-enter-from,
+.tab-fade-leave-to {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
+.tab-fade-enter-to,
+.tab-fade-leave-from {
+    opacity: 1;
+    transform: translateY(0);
+}
+</style>

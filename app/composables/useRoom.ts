@@ -95,7 +95,6 @@ export function useRoom() {
 
       isLeaving.value = true;
       resetPlayerList();
-      await navigateTo("/");
     } catch (err) {
       console.error("Error in deletePlayerFromRoomTable:", err);
     }

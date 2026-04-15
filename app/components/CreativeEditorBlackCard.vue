@@ -6,6 +6,7 @@ const emit = defineEmits<{
 
 const currentBlackCardText = ref<any[]>([{ text: "", isGap: false }]);
 const GAP_TOKEN: string = "[[W1tnYXBdXQ==]]";
+const MAX_GAPS = 3;
 
 const getTextParts = (text: string): any[] => {
     if (!text.includes(GAP_TOKEN)) {
@@ -31,7 +32,8 @@ const getTextParts = (text: string): any[] => {
 };
 
 function insertGap() {
-    currentBlackCardText.value.push({ text: "", isGap: true, gapIndex: currentBlackCardText.value.filter((part: any) => part.isGap).length });
+    if (number_of_gaps.value >= MAX_GAPS) return;
+    currentBlackCardText.value.push({ text: "", isGap: true, gapIndex: number_of_gaps.value });
 }
 
 function insertText() {
@@ -64,7 +66,7 @@ watch(currentBlackCardText, () => {
 
 <template>
     <div
-        class="relative w-full h-full flex flex-col items-center justify-between gap-4 bg-black p-5 rounded-lg border border-[3px] border-white transition-all">
+        class="relative w-full h-full flex flex-col items-center justify-between gap-4 bg-black p-5 rounded-lg border-[3px] border-white transition-all">
         <div class="w-full flex flex-col gap-2 h-full overflow-y-auto">
             <div v-for="part, index in currentBlackCardText" :key="index" class="w-full flex flex-row gap-4">
                 <div v-if="part.isGap"
@@ -76,13 +78,13 @@ watch(currentBlackCardText, () => {
             </div>
         </div>
         <div class="w-full flex flex-row gap-2">
-            <Button v-if="!currentBlackCardText[currentBlackCardText.length - 1]?.isGap" @click="insertGap()"
+            <Button v-if="!currentBlackCardText[currentBlackCardText.length - 1]?.isGap && number_of_gaps < MAX_GAPS" @click="insertGap()"
                 variant="primary" size="sm" block class="">Insert Gap</Button>
             <Button v-if="currentBlackCardText[currentBlackCardText.length - 1]?.isGap" @click="insertText()"
                 variant="primary" size="sm" block class="">Insert Text</Button>
             <Button v-if="currentBlackCardText.length" @click="deleteLast()" variant="primary" size="sm" block
                 class="">Delete Last</Button>
-            <Button v-if="currentBlackCardText.length > 1" @click="submitBlackCard()" variant="tertiary" size="sm" block
+            <Button v-if="currentBlackCardText.length > 1" @click="submitBlackCard()" variant="primary" size="sm" block
                 class="">Submit</Button>
         </div>
 

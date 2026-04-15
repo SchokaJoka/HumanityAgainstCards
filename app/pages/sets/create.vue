@@ -1,5 +1,5 @@
 <template>
-    <main class="w-full flex items-center justify-center">
+    <main class="w-full flex items-center justify-center bg-black">
         <header ref="headerEl" class="fixed top-0 w-full flex flex-col items-start justify-start z-10 bg-black">
             <div class="flex flex-row items-center w-full gap-4 p-4">
                 <div class="cursor-pointer" @click="leavePage">
@@ -38,7 +38,7 @@
             </div>
         </header>
 
-        <section class="relative flex flex-col items-center justify-start w-full h-fit max-w-3xl bg-neutral-300">
+        <section class="relative flex flex-col items-center justify-start w-full h-fit max-w-3xl bg-[#79F8B0]">
             <div class="flex flex-col h-full w-full mt-[var(--sets-header-h)]">
 
                 <div class="h-fit flex flex-col p-4 min-h-screen">

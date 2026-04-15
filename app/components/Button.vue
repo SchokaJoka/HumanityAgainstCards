@@ -59,11 +59,11 @@ const isDisabled = computed(() => props.disabled || props.loading);
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-white text-black border-black md:hover:bg-[#FFB077] md:hover:-translate-y-1 active:bg-[#FFB077] active:-translate-x-1 active:-translate-y-1 focus-visible:ring-[#00E1EF]",
+    "bg-white text-black border-black md:hover:bg-[#FFB077] md:hover:-translate-y-1 active:-translate-x-1 active:-translate-y-1 focus-visible:ring-[#00E1EF]",
   secondary:
     "bg-black text-white border-white md:hover:-translate-y-1 active:bg-black/80 active:-translate-x-1 active:-translate-y-1 focus-visible:ring-neutral-300",
   tertiary:
-    "bg-green-300 text-black border-black md:hover:bg-green-400 md:hover:-translate-y-1 active:bg-green-500 active:-translate-x-2 active:-translate-y-2 focus-visible:ring-green-500",
+    "",
   danger:
     "bg-red-600 text-white border-white md:hover:bg-red-700 md:hover:-translate-y-1 active:bg-red-800 active:-translate-x-2 active:-translate-y-2 focus-visible:ring-red-300",
   ghost:
@@ -123,6 +123,7 @@ const buttonClasses = computed(() => [
   "btn-base inline-flex items-center justify-center p-2.5 transform-gpu will-change-transform transition-[background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
   "focus-visible:outline-none focus-visible:ring-2",
   "disabled:cursor-not-allowed disabled:opacity-60",
+  props.variant === "tertiary" && "no-shadow",
   isPressed.value && "is-pressed",
   props.block ? "w-full" : "w-fit",
   variantClasses[props.variant],
@@ -159,6 +160,12 @@ const handleClick = (event: MouseEvent) => {
 .btn-base.is-pressed {
   box-shadow: var(--btn-shadow-active);
   transform: translate(-3px, -3px);
+}
+
+.btn-base.no-shadow,
+.btn-base.no-shadow:active,
+.btn-base.no-shadow.is-pressed {
+  box-shadow: none;
 }
 
 /* Improve mobile touch feedback */

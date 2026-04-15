@@ -355,19 +355,16 @@ async function handleBackFromLobby() {
     return;
   }
 
+  isLeavingFromBack.value = true;
   if (roomId.value && playerId.value) {
-    isLeavingFromBack.value = true;
     try {
       await deletePlayerFromRoomTable(roomId.value, playerId.value);
     } catch (err) {
       console.error("[Lobby] Failed to leave room from lobby header:", err);
-      isLeavingFromBack.value = false;
     }
-    return;
   }
 
-  isLeavingFromBack.value = true;
-  await navigateTo('/');
+  await navigateTo("/");
 }
 
 // ============================================================

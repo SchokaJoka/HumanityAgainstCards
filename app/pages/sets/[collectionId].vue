@@ -47,7 +47,7 @@
                 <div class="h-fit flex flex-col p-4 min-h-screen">
                     <div v-if="isLoading" class="flex flex-col gap-4 animate-pulse">
                         <div v-for="n in placeholderRows" :key="n"
-                            class="w-full flex items-center gap-4 bg-neutral-100 p-5 rounded-lg border border-[3px] border-black/20">
+                            class="w-full flex items-center gap-4 bg-neutral-100 p-5 rounded-lg border-[3px] border-black/20">
                             <div class="h-9 w-9 rounded bg-neutral-200" />
                             <div class="h-6 w-1/3 rounded bg-neutral-200" />
                             <div class="ml-auto h-6 w-6 rounded bg-neutral-200" />
@@ -84,10 +84,7 @@
         <section class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] z-20">
             <div class="w-full flex flex-row gap-4 max-w-2xl mx-auto">
                 <Button v-if="isOwner" variant="primary" size="lg" class="rounded-lg" @click="addCardToSet">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 5V19" stroke="black" stroke-width="2" stroke-linecap="round" />
-                        <path d="M5 12H19" stroke="black" stroke-width="2" stroke-linecap="round" />
-                    </svg>
+                    <img src="~/assets/svg/Add.svg" alt="Add" class="h-10 w-10" />
                 </Button>
             </div>
         </section>
@@ -140,8 +137,8 @@ async function addCardToSet() {
         .single();
 
     if (!error && data) {
-        if (isBlack) blackCards.value.unshift(data);
-        else whiteCards.value.unshift(data);
+        if (isBlack) blackCards.value.push(data);
+        else whiteCards.value.push(data);
     }
 
     isAdding.value = false;
@@ -301,3 +298,22 @@ onMounted(async () => {
     }
 });
 </script>
+
+<style scoped>
+.tab-fade-enter-active,
+.tab-fade-leave-active {
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.tab-fade-enter-from,
+.tab-fade-leave-to {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
+.tab-fade-enter-to,
+.tab-fade-leave-from {
+    opacity: 1;
+    transform: translateY(0);
+}
+</style>

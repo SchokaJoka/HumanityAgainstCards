@@ -698,7 +698,7 @@ const dev2gaps = ref(false);
         <LeaveConfirmOverlay :show="showLeaveConfirm" :is-game-master="isGameMaster" :round-status="roundStatus"
           :leave-loading="isLeavingGame" :back-to-lobby-loading="isReturningToLobby" @close="showLeaveConfirm = false"
           @leave="handleLeaveConfirmed" @back-to-lobby="handleBackToLobbyConfirmed" />
-        <Button @click="showLeaveConfirm = true" :variant="isCzar ? 'primary' : 'secondary'" size="md"
+        <Button @click="showLeaveConfirm = true" variant="tertiary" :class="isCzar ? 'bg-white text-black rounded border-white' : 'bg-black text-white rounded border-black'" size="md"
           class="">Leave</Button>
       </div>
       <div class="w-full flex flex-row gap-2">
@@ -716,7 +716,7 @@ const dev2gaps = ref(false);
       <!-- Game Section -->
       <section name="game-section" v-if="gameStarted && roundStatus !== 'lobby' && roundStatus !== 'round_end'"
         key="game-section"
-        class="w-full mt-[var(--sets-header-h)] h-[calc(100dvh-var(--sets-header-h))] flex flex-col justify-start items-center gap-4 p-4"
+        class="w-full mt-[var(--sets-header-h)] h-[calc(100dvh-var(--sets-header-h))] flex flex-col justify-start items-center gap-4 py-4"
         :class="isCzar ? 'flex-col-reverse justify-start' : 'flex-col justify-start'">
         <TransitionGroup name="stack-fade" appear>
           <!-- Black Card -->
