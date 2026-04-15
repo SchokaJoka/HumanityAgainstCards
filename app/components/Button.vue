@@ -1,15 +1,7 @@
 <template>
-  <button
-    :type="type"
-    :class="buttonClasses"
-    :style="buttonStyle"
-    :disabled="isDisabled"
-    @click="handleClick"
-    @pointerdown="setPressed(true)"
-    @pointerup="setPressed(false)"
-    @pointercancel="setPressed(false)"
-    @pointerleave="setPressed(false)"
-  >
+  <button :type="type" :class="buttonClasses" :style="buttonStyle" :disabled="isDisabled" @click="handleClick"
+    @pointerdown="setPressed(true)" @pointerup="setPressed(false)" @pointercancel="setPressed(false)"
+    @pointerleave="setPressed(false)">
     <span v-if="loading" class="inline-flex items-center gap-2">
       <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
       <slot name="loading">Loading...</slot>
@@ -46,6 +38,7 @@ const props = withDefaults(
     loading: false,
     disabled: false,
     type: "button",
+
   },
 );
 
@@ -59,9 +52,9 @@ const isDisabled = computed(() => props.disabled || props.loading);
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-white text-black border-black md:hover:bg-[#FFB077] md:hover:-translate-y-1 active:-translate-x-1 active:-translate-y-1 focus-visible:ring-[#00E1EF]",
+    "bg-white text-black border-black md:hover:bg-[#FFB077] md:hover:-translate-y-1 active:-translate-x-1 active:-translate-y-1 focus-visible:ring-[#00E1EF] rounded-lg",
   secondary:
-    "bg-black text-white border-white md:hover:-translate-y-1 active:bg-black/80 active:-translate-x-1 active:-translate-y-1 focus-visible:ring-neutral-300",
+    "bg-black text-white border-white md:hover:-translate-y-1 active:bg-black/80 active:-translate-x-1 active:-translate-y-1 focus-visible:ring-neutral-300 rounded-lg",
   tertiary:
     "",
   danger:

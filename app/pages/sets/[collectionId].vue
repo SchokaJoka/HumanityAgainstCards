@@ -44,7 +44,7 @@
         <section class="relative flex flex-col items-center justify-start w-full h-fit max-w-3xl bg-[#79F8B0]">
             <div class="flex flex-col h-full w-full mt-[var(--sets-header-h)]">
 
-                <div class="h-fit flex flex-col p-4 min-h-screen">
+                <div class="h-fit flex flex-col p-4 pb-32 min-h-screen">
                     <div v-if="isLoading" class="flex flex-col gap-4 animate-pulse">
                         <div v-for="n in placeholderRows" :key="n"
                             class="w-full flex items-center gap-4 bg-neutral-100 p-5 rounded-lg border-[3px] border-black/20">
@@ -58,22 +58,28 @@
                         <div :key="activeTab">
                             <div v-if="activeTab === 'page1'">
                                 <div class="flex flex-col gap-4">
-                                    <EditorWhiteCard v-for="whiteCard in whiteCards" :key="whiteCard.id"
-                                        :card="whiteCard" :editor-id="getWhiteEditorId(whiteCard.id)"
-                                        :can-edit="!activeEditorId || activeEditorId === getWhiteEditorId(whiteCard.id)"
-                                        @update="(text) => saveUpdate(whiteCard.id, { text, updated_at: new Date().toISOString() })"
-                                        @edit-start="handleEditStart" @edit-end="handleEditEnd"
-                                        @delete="deleteCard(whiteCard.id, false)" />
+                                    <div v-for="whiteCard in whiteCards" :key="whiteCard.id"
+                                        :ref="setEditorEl(getWhiteEditorId(whiteCard.id))" class="w-full">
+                                        <EditorWhiteCard :card="whiteCard" :editor-id="getWhiteEditorId(whiteCard.id)"
+                                            :can-edit="!activeEditorId || activeEditorId === getWhiteEditorId(whiteCard.id)"
+                                            :auto-edit="autoEditId === getWhiteEditorId(whiteCard.id)"
+                                            @update="(text) => saveUpdate(whiteCard.id, { text, updated_at: new Date().toISOString() })"
+                                            @edit-start="handleEditStart" @edit-end="handleEditEnd"
+                                            @delete="deleteCard(whiteCard.id, false)" />
+                                    </div>
                                 </div>
                             </div>
                             <div v-else>
                                 <div class="flex flex-col gap-4">
-                                    <EditorBlackCard v-for="blackCard in blackCards" :key="blackCard.id"
-                                        :card="blackCard" :editor-id="getBlackEditorId(blackCard.id)"
-                                        :can-edit="!activeEditorId || activeEditorId === getBlackEditorId(blackCard.id)"
-                                        @update="(data) => saveUpdate(blackCard.id, { text: data.text, number_of_gaps: data.number_of_gaps, updated_at: new Date().toISOString() })"
-                                        @edit-start="handleEditStart" @edit-end="handleEditEnd"
-                                        @delete="deleteCard(blackCard.id, true)" />
+                                    <div v-for="blackCard in blackCards" :key="blackCard.id"
+                                        :ref="setEditorEl(getBlackEditorId(blackCard.id))" class="w-full">
+                                        <EditorBlackCard :card="blackCard" :editor-id="getBlackEditorId(blackCard.id)"
+                                            :can-edit="!activeEditorId || activeEditorId === getBlackEditorId(blackCard.id)"
+                                            :auto-edit="autoEditId === getBlackEditorId(blackCard.id)"
+                                            @update="(data) => saveUpdate(blackCard.id, { text: data.text, number_of_gaps: data.number_of_gaps, updated_at: new Date().toISOString() })"
+                                            @edit-start="handleEditStart" @edit-end="handleEditEnd"
+                                            @delete="deleteCard(blackCard.id, true)" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -105,12 +111,14 @@ const supabase = useSupabaseClient();
 const user = useSupabaseUser();
 const collectionId = useRoute().params.collectionId as string;
 
+const autoEditId = ref<string | null>(null);
 const collection = ref<Collections>({} as Collections);
 const whiteCards = ref<Cards[]>([]);
 const blackCards = ref<Cards[]>([]);
 const isLoading = ref(true);
 const placeholderRows = [1, 2, 3];
 const activeEditorId = ref<string | null>(null);
+const editorEls = new Map<string, HTMLElement>();
 const isOwner = computed(() => {
     const userId = user.value?.id ?? user.value?.sub ?? null;
     return collection.value?.user_id === userId;
@@ -139,6 +147,8 @@ async function addCardToSet() {
     if (!error && data) {
         if (isBlack) blackCards.value.push(data);
         else whiteCards.value.push(data);
+        const editorId = isBlack ? getBlackEditorId(data.id) : getWhiteEditorId(data.id);
+        triggerAutoEdit(editorId);
     }
 
     isAdding.value = false;
@@ -153,6 +163,15 @@ const focusInput = () => {
     collectionNameInputRef.value?.focus();
 };
 
+function triggerAutoEdit(editorId: string) {
+    activeEditorId.value = editorId; // make canEdit true for that card
+    autoEditId.value = editorId;
+    nextTick(() => {
+        scrollToPageBottom();
+        autoEditId.value = null;
+    });
+}
+
 function getWhiteEditorId(cardId: string) {
     return `white-${cardId}`;
 }
@@ -163,12 +182,40 @@ function getBlackEditorId(cardId: string) {
 
 function handleEditStart(editorId: string) {
     activeEditorId.value = editorId;
+    scrollToEditor(editorId);
 }
 
 function handleEditEnd(editorId: string) {
     if (activeEditorId.value === editorId) {
         activeEditorId.value = null;
     }
+}
+
+function setEditorEl(editorId: string) {
+    return (el: HTMLElement | null) => {
+        if (el) {
+            editorEls.set(editorId, el);
+        } else {
+            editorEls.delete(editorId);
+        }
+    };
+}
+
+function scrollToEditor(editorId: string) {
+    nextTick(() => {
+        const el = editorEls.get(editorId);
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth", block: "end" });
+    });
+}
+
+function scrollToPageBottom() {
+    const scroller = document.scrollingElement ?? document.documentElement;
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+        });
+    });
 }
 
 async function saveCollectionName(collectionId: string, name: string) {

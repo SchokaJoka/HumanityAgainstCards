@@ -7,6 +7,7 @@ const props = defineProps<{
     card: Card;
     editorId: string;
     canEdit: boolean;
+    autoEdit?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -21,6 +22,7 @@ const currentBlackCardText = ref<any[]>([]);
 const GAP_TOKEN: string = "[[W1tnYXBdXQ==]]";
 const MAX_GAPS = 3;
 const showDeleteConfirm = ref(false);
+const editTextareas = ref<HTMLTextAreaElement[]>([]);
 
 const gapCount = computed(() => currentBlackCardText.value.filter((part: any) => part.isGap).length);
 const canInsertGap = computed(() => gapCount.value < MAX_GAPS);
@@ -48,11 +50,20 @@ const getTextParts = (text: string): any[] => {
     return parts;
 };
 
+watch(
+    () => props.autoEdit,
+    (val) => {
+        if (val) nextTick(startEdit);
+    },
+    { immediate: true }
+);
+
 function startEdit() {
     if (!props.canEdit || isEditing.value) return;
     isEditing.value = true;
     emit('edit-start', props.editorId);
     currentBlackCardText.value = getTextParts(props.card.text || "");
+    resizeAllTextareas();
 }
 
 function insertGap() {
@@ -62,6 +73,7 @@ function insertGap() {
 
 function insertText() {
     currentBlackCardText.value.push({ text: "", isGap: false });
+    resizeAllTextareas();
 }
 
 function deleteLast() {
@@ -95,34 +107,53 @@ function confirmDelete() {
     showDeleteConfirm.value = false;
     emit('delete');
 }
+
+function autoResizeTextarea(textarea: HTMLTextAreaElement | null) {
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
+function resizeAllTextareas() {
+    nextTick(() => {
+        editTextareas.value.forEach(autoResizeTextarea);
+    });
+}
+
+function handleTextareaInput(event: Event) {
+    autoResizeTextarea(event.target as HTMLTextAreaElement | null);
+}
 </script>
 
 <template>
     <div
         class="relative w-full flex flex-row items-center justify-between gap-4 bg-black p-5 rounded-lg border-[3px] border-white transition-all">
-        <transition name="edit-fade" mode="out-in">
+        <transition name="edit-fade" mode="out-in" @after-enter="resizeAllTextareas">
             <div v-if="!isEditing"
-                class="w-full flex flex-row flex-wrap items-center gap-2 text-white text-xl font-semibold">
+                class="flex-1 min-w-0 max-h-28 overflow-y-auto pr-2 flex flex-row flex-wrap items-center gap-2 text-white text-xl font-semibold">
                 <template v-for="(part, index) in getTextParts(card.text || '')" :key="index">
                     <div v-if="part.isGap"
                         class="inline-flex items-center justify-center px-4 py-1 rounded-md bg-white text-black text-sm font-semibold tracking-wider">
                         ___
                     </div>
-                    <span v-else>{{ part.text }}</span>
+                    <span v-else class="min-w-0 break-words whitespace-pre-wrap">{{ part.text }}</span>
                 </template>
             </div>
-            <div v-else class="w-full flex flex-col gap-2">
-                <div v-for="part, index in currentBlackCardText" :key="index" class="w-full flex flex-row gap-4">
-                    <div v-if="part.isGap"
-                        class="inline-flex items-center justify-center px-4 py-1 border-2 border-white rounded-md bg-white/10 text-white text-sm font-semibold tracking-wide">
-                        GAP
+            <div v-else class="flex-1 min-w-0 flex flex-col gap-2">
+                <div class="w-full pr-2 flex flex-col gap-2">
+                    <div v-for="part, index in currentBlackCardText" :key="index" class="w-full flex flex-row gap-4">
+                        <div v-if="part.isGap"
+                            class="inline-flex items-center justify-center px-4 py-1 border-2 border-white rounded-md bg-white/10 text-white text-sm font-semibold tracking-wide">
+                            GAP
+                        </div>
+                        <textarea v-else ref="editTextareas" v-model="part.text" rows="2" @input="handleTextareaInput"
+                            @keydown.enter.prevent
+                            class="flex-1 min-w-0 bg-white text-black px-2 py-1 rounded resize-none break-words whitespace-pre-wrap overflow-hidden"></textarea>
                     </div>
-                    <input v-else type="text" v-model="part.text"
-                        class="flex-1 bg-white text-black px-2 py-1 rounded" />
                 </div>
                 <div class="w-full flex flex-row gap-2">
-                    <Button v-if="!currentBlackCardText[currentBlackCardText.length - 1]?.isGap && canInsertGap" @click="insertGap()"
-                        variant="primary" size="sm" block class="">Insert Gap</Button>
+                    <Button v-if="!currentBlackCardText[currentBlackCardText.length - 1]?.isGap && canInsertGap"
+                        @click="insertGap()" variant="primary" size="sm" block class="">Insert Gap</Button>
                     <Button v-if="currentBlackCardText[currentBlackCardText.length - 1]?.isGap" @click="insertText()"
                         variant="primary" size="sm" block class="">Insert Text</Button>
                     <Button v-if="currentBlackCardText.length > 1" @click="deleteLast()" variant="primary" size="sm"
@@ -163,8 +194,10 @@ function confirmDelete() {
                     <div class="bg-white text-black flex flex-col rounded-lg p-6 w-full max-w-xs" @click.stop>
                         <p class="font-semibold text-2xl">Do you want to delete this card?</p>
                         <div class="mt-16 flex flex-row justify-between w-full gap-8">
-                            <Button size="md" variant="secondary" class="rounded" block @click="closeDeleteConfirm">No</Button>
-                            <Button size="md" variant="primary" class="rounded" block @click="confirmDelete">Yes</Button>
+                            <Button size="md" variant="secondary" class="rounded" block
+                                @click="closeDeleteConfirm">No</Button>
+                            <Button size="md" variant="primary" class="rounded" block
+                                @click="confirmDelete">Yes</Button>
                         </div>
                     </div>
                 </div>

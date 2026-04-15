@@ -70,9 +70,13 @@
                                                 class="absolute right-1 top-10 z-50 min-w-[25dvw] rounded-lg bg-white p-1 text-black border-[3px] border-black"
                                                 @click.stop>
                                                 <div class="flex flex-col items-start gap-1">
-                                                    <button class="w-full hover:bg-black/10 text-left text-lg py-2 px-1 rounded" @click="renameSet">Rename</button>
-                                                    <div class="bg-black w-full h-[2px]"/>
-                                                    <button class="w-full hover:bg-red-500/10 text-left text-lg py-2 px-1 rounded" @click="openDeleteConfirm">Delete</button>
+                                                    <button
+                                                        class="w-full hover:bg-black/10 text-left text-lg py-2 px-1 rounded"
+                                                        @click="renameSet">Rename</button>
+                                                    <div class="bg-black w-full h-[2px]" />
+                                                    <button
+                                                        class="w-full hover:bg-red-500/10 text-left text-lg py-2 px-1 rounded"
+                                                        @click="openDeleteConfirm">Delete</button>
                                                 </div>
                                             </div>
                                         </Transition>
@@ -111,7 +115,7 @@
                 </div>
             </div>
         </div>
-        <section class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] z-20">
+        <section v-if="activeTab === 'page1'" class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] z-20">
             <div class="w-full max-w-2xl mx-auto">
                 <Button variant="primary" size="lg" class="rounded-lg" @click="navigateTo('/sets/create')">
                     <template #iconLeft>

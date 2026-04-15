@@ -405,11 +405,12 @@ const dev2gaps = ref(false);
         paddingBottom: 'calc(var(--lobby-footer-h, 0px) + env(safe-area-inset-bottom, 0px))',
       }">
       <!-- Game Mode Selection -->
-      <div class="flex flex-col gap-2 w-full">
+      <div class="flex flex-col gap-2 w-full ">
         <GameModeSelectionCard v-for="mode in gameModes" :key="mode.value" :mode="mode.value" :title="mode.title"
           :description="mode.description" :selected-mode="selectedGameMode" :can-select="isGameMaster"
           :collections="collections" :selected-collection-ids="selectedCollectionIds" @select="setLobbySettings"
-          @select-collection="setSelectedCollection" :show-arrow-icon="mode.value !== 'creative'" />
+          @select-collection="setSelectedCollection" :show-arrow-icon="mode.value !== 'creative'"
+          class="rounded-lg overflow-hidden" />
       </div>
     </main>
 
@@ -442,7 +443,7 @@ const dev2gaps = ref(false);
         <!-- Start Game Button -->
         <section class="flex flew-row items-stretch w-full transition-all justify-between gap-4">
           <div class="flex flex-col gap-2 w-full">
-            <div class="flex flex-row gap-2 items-stretch h-fit overflow-clip border-[3px] border-white">
+            <div class="flex flex-row gap-2  items-stretch h-fit overflow-clip border-[3px]  border-white">
               <div class="w-full flex flex-row items-center justify-between cursor-pointer">
                 <div class="w-full flex flex-row py-4 px-3 text-xl font-normal items-center justify-between"
                   @click="copyRoomCode()">

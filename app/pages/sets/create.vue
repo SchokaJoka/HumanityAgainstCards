@@ -16,7 +16,7 @@
                             ? 'text-black bg-[#79F8B0]'
                             : 'text-white bg-[#50907F] hover:bg-neutral-250'" @click="activeTab = 'page1'">
                         <span class="flex size-8 items-center justify-center rounded-full text-black bg-white">
-                                {{ whiteCards.length }}
+                            {{ whiteCards.length }}
                         </span>
                         <span>
                             White Cards
@@ -28,7 +28,7 @@
                             ? 'text-black bg-[#79F8B0]'
                             : 'text-white bg-[#50907F] hover:bg-neutral-250'" @click="activeTab = 'page2'">
                         <span class="flex size-8 items-center justify-center bg-black rounded-full text-white">
-                                {{ blackCards.length }}
+                            {{ blackCards.length }}
                         </span>
                         <span>
                             Black Cards
@@ -41,29 +41,33 @@
         <section class="relative flex flex-col items-center justify-start w-full h-fit max-w-3xl bg-[#79F8B0]">
             <div class="flex flex-col h-full w-full mt-[var(--sets-header-h)]">
 
-                <div class="h-fit flex flex-col p-4 min-h-screen">
+                <div class="h-fit flex flex-col p-4 pb-32 min-h-screen">
                     <Transition name="tab-fade" mode="out-in">
                         <div :key="activeTab">
                             <div v-if="activeTab === 'page1'">
                                 <div class="flex flex-col gap-4">
-                                    <EditorWhiteCard v-for="whiteCard, index in whiteCards" :key="index" :card="whiteCard"
-                                        :editor-id="getWhiteEditorId(index)"
-                                        :can-edit="!activeEditorId || activeEditorId === getWhiteEditorId(index)"
-                                        @update="(text) => whiteCards[index].text = text"
-                                        @edit-start="handleEditStart"
-                                        @edit-end="handleEditEnd"
-                                        @delete="deleteCard(index, 'white')" />
+                                    <div v-for="whiteCard, index in whiteCards" :key="index"
+                                        :ref="setEditorEl(getWhiteEditorId(index))" class="w-full">
+                                        <EditorWhiteCard :card="whiteCard" :editor-id="getWhiteEditorId(index)"
+                                            :can-edit="!activeEditorId || activeEditorId === getWhiteEditorId(index)"
+                                            :auto-edit="autoEditId === getWhiteEditorId(index)"
+                                            @update="(text) => whiteCards[index].text = text"
+                                            @edit-start="handleEditStart" @edit-end="handleEditEnd"
+                                            @delete="deleteCard(index, 'white')" />
+                                    </div>
                                 </div>
                             </div>
                             <div v-else>
                                 <div class="flex flex-col gap-4">
-                                    <EditorBlackCard v-for="blackCard, index in blackCards" :key="index" :card="blackCard"
-                                        :editor-id="getBlackEditorId(index)"
-                                        :can-edit="!activeEditorId || activeEditorId === getBlackEditorId(index)"
-                                        @update="(data) => { blackCards[index].text = data.text; blackCards[index].number_of_gaps = data.number_of_gaps }"
-                                        @edit-start="handleEditStart"
-                                        @edit-end="handleEditEnd"
-                                        @delete="deleteCard(index, 'black')" />
+                                    <div v-for="blackCard, index in blackCards" :key="index"
+                                        :ref="setEditorEl(getBlackEditorId(index))" class="w-full">
+                                        <EditorBlackCard :card="blackCard" :editor-id="getBlackEditorId(index)"
+                                            :can-edit="!activeEditorId || activeEditorId === getBlackEditorId(index)"
+                                            :auto-edit="autoEditId === getBlackEditorId(index)"
+                                            @update="(data) => { blackCards[index].text = data.text; blackCards[index].number_of_gaps = data.number_of_gaps }"
+                                            @edit-start="handleEditStart" @edit-end="handleEditEnd"
+                                            @delete="deleteCard(index, 'black')" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -74,13 +78,15 @@
 
         <section class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] z-20">
             <div class="w-full flex flex-row gap-4 max-w-2xl mx-auto">
-                <Button variant="primary" size="lg" @click="activeTab === 'page1' ? newWhiteCard() : newBlackCard()" class="rounded-lg">
+                <Button variant="primary" size="lg" @click="activeTab === 'page1' ? newWhiteCard() : newBlackCard()"
+                    class="rounded-lg">
                     <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none">
                         <path d="M12 5V19" stroke="black" stroke-width="2" stroke-linecap="round" />
                         <path d="M5 12H19" stroke="black" stroke-width="2" stroke-linecap="round" />
                     </svg>
                 </Button>
-                <Button v-if="hasUnsavedChanges" variant="primary" class="rounded-lg" size="lg" @click="saveCollection()">
+                <Button v-if="hasUnsavedChanges" variant="primary" class="rounded-lg" size="lg"
+                    @click="saveCollection()">
                     Save
                 </Button>
             </div>
@@ -102,6 +108,8 @@ const collectionName = ref<string>("");
 const whiteCards = ref<Card[]>([]);
 const blackCards = ref<Card[]>([]);
 const activeEditorId = ref<string | null>(null);
+const autoEditId = ref<string | null>(null);
+const editorEls = new Map<string, HTMLElement>();
 
 const activeTab = ref("page1");
 const { headerEl, updateHeaderHeight } = useHeaderHeight("--sets-header-h");
@@ -111,6 +119,7 @@ const hasUnsavedChanges = computed(() =>
     blackCards.value.length > 0 ||
     collectionName.value.trim() !== ""
 );
+
 
 function getWhiteEditorId(index: number) {
     return `white-${index}`;
@@ -122,12 +131,40 @@ function getBlackEditorId(index: number) {
 
 function handleEditStart(editorId: string) {
     activeEditorId.value = editorId;
+    scrollToEditor(editorId);
 }
 
 function handleEditEnd(editorId: string) {
     if (activeEditorId.value === editorId) {
         activeEditorId.value = null;
     }
+}
+
+function setEditorEl(editorId: string) {
+    return (el: HTMLElement | null) => {
+        if (el) {
+            editorEls.set(editorId, el);
+        } else {
+            editorEls.delete(editorId);
+        }
+    };
+}
+
+function scrollToEditor(editorId: string) {
+    nextTick(() => {
+        const el = editorEls.get(editorId);
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth", block: "end" });
+    });
+}
+
+function scrollToPageBottom() {
+    const scroller = document.scrollingElement ?? document.documentElement;
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+        });
+    });
 }
 
 function deleteCard(index: number, type: "white" | "black") {
@@ -145,12 +182,23 @@ function deleteCard(index: number, type: "white" | "black") {
         }
     }
 }
+function triggerAutoEdit(editorId: string) {
+    activeEditorId.value = editorId; // make canEdit true for that card
+    autoEditId.value = editorId;
+    nextTick(() => {
+        scrollToPageBottom();
+        autoEditId.value = null;
+    });
+}
 
 function newWhiteCard() {
     whiteCards.value.push({
+
         text: `New white card ${whiteCards.value.length + 1}`,
         is_black: false,
     } as Card);
+    const index = whiteCards.value.length - 1;
+    triggerAutoEdit(getWhiteEditorId(index));
 }
 
 function newBlackCard() {
@@ -159,6 +207,8 @@ function newBlackCard() {
         is_black: true,
         number_of_gaps: 0,
     } as Card);
+    const index = blackCards.value.length - 1;
+    triggerAutoEdit(getBlackEditorId(index));
 }
 
 async function saveCollection() {
@@ -182,7 +232,7 @@ async function saveCollection() {
         })
         .select("id")
         .single();
-        
+
     if (error) {
         console.error("Error creating collection:", error);
         alert("An error occurred while creating the collection. Please try again.");

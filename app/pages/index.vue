@@ -88,8 +88,11 @@
         :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
         <div class="w-full flex flex-row gap-4 flex-wrap items-end justify-between">
           <h1 class="h-fit text-5xl font-extrabold mb-16">
-            Humanity Against <span class="text-[#FFB077]">{{ user?.user_metadata?.full_name || "Cards"
-              }}</span>
+            <span class="block">Humanity</span>
+            <span class="block pl-6">Against</span>
+            <span class="block pl-12 text-[#FFB077]">
+              {{ user?.user_metadata?.full_name || "Cards" }}
+            </span>
           </h1>
         </div>
         <Button @click="createGame()" variant="primary" size="lg" block class="">Create Game</Button>
