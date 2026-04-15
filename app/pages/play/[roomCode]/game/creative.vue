@@ -556,11 +556,18 @@ const roundStatusMessage = computed(() => {
 </script>
 
 <template>
-    <main class="flex flex-col items-center w-full min-h-dvh transition-colors"
-        :class="isCzar ? 'bg-black text-white' : 'bg-white text-black'">
+    <main class="flex flex-col items-center w-full h-dvh overflow-w-hidden overflow-y-auto transition-color" :class="roundStatus === 'round_end'
+        ? 'bg-sky-300 text-black'
+        : isCzar
+            ? 'bg-black text-white'
+            : 'bg-white text-black'">
         <!-- Header -->
-        <header ref="headerEl"
-            class="fixed pt-[env(safe-area-inset-top),0px)] w-full flex flex-col p-4 gap-2 z-40 bg-white">
+        <header ref="headerEl" class="fixed pt-[env(safe-area-inset-top),0px)] w-full flex flex-col p-4 gap-2 z-40"
+            :class="roundStatus === 'round_end'
+                ? 'bg-sky-300 text-black'
+                : isCzar
+                    ? 'bg-black text-white'
+                    : 'bg-white text-black'">
             <div class="w-full flex flex-row items-stretch justify-between gap-2">
                 <div class="flex flex-row w-full items-center justify-start overflow-x-auto gap-2">
                     <div v-for="player in players" :key="player.user_id" class="flex flex-col items-center gap-1">
@@ -595,7 +602,7 @@ const roundStatusMessage = computed(() => {
 
         <!-- Game Section -->
         <section name="game-section" v-if="gameStarted && roundStatus !== 'lobby' && roundStatus !== 'round_end'"
-            class="w-full mt-[var(--sets-header-h)] h-[calc(100dvh-var(--sets-header-h))] flex items-center gap-2 overflow-y-visible py-4"
+            class="w-full mt-[var(--sets-header-h)] min-h-[calc(100dvh-var(--sets-header-h))] flex items-center gap-2 overflow-y-visible py-4 relative"
             :class="isCzar
                 ? roundStatus === 'round_create_black_card'
                     ? 'flex-col justify-start'
@@ -607,9 +614,19 @@ const roundStatusMessage = computed(() => {
                 <div v-if="blackCard && isCzar"
                     class="rounded-xl bg-black text-normal font-bold text-white border-2 border-white">
                     <div class="w-52 h-64 overflow-y-auto overflow-x-visible p-4">
-                        <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
-                            :class="part.isGap ? 'm-1 px-2 py-1 bg-white text-black rounded-md cursor-pointer' : ''">
-                            {{ part.isGap ? `___` : part.text }}
+                        <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`" :class="part.isGap
+                            ? 'text-violet-500 whitespace-nowrap inline-block'
+                            : 'text-white break-words whitespace-pre-wrap'"> {{ part.isGap ? `___` : part.text }}
+                        </span>
+                    </div>
+                </div>
+                <!-- Black Card -->
+                <div v-if="blackCard && !isCzar && roundStatus === 'round_start'"
+                    class="rounded-xl bg-black text-normal font-bold text-white border-2 border-white">
+                    <div class="w-52 h-64 overflow-y-auto overflow-x-visible p-4">
+                        <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`" :class="part.isGap
+                            ? 'text-violet-500 whitespace-nowrap inline-block'
+                            : 'text-white break-words whitespace-pre-wrap'"> {{ part.isGap ? `___` : part.text }}
                         </span>
                     </div>
                 </div>
@@ -637,12 +654,14 @@ const roundStatusMessage = computed(() => {
                     <div v-else class="w-full px-4 justify-between">
                         <div class="w-full max-w-2xl mx-auto flex flex-row justify-around items-stretch gap-2">
                             <!-- Left column -->
-                            <div class="flex flex-1 min-w-0 flex-col items-center gap-4 pt-8">
+                            <div class="flex flex-1 min-w-0 flex-col items-center gap-4 pt-8 ">
                                 <div v-if="blackCard"
                                     class="bg-black w-full max-w-[13rem] aspect-[13/16] rounded-xl p-4 font-bold border-2 border-black">
                                     <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
-                                        :class="part.isGap ? 'text-violet-500' : 'text-white'">
-                                        {{ part.isGap ? "________" : part.text }}
+                                        :class="part.isGap
+                                            ? 'text-violet-500 whitespace-nowrap inline-block'
+                                            : 'text-white break-words whitespace-pre-wrap'">{{ part.isGap ? "________"
+                                                : part.text }}
                                     </span>
                                 </div>
                                 <SubmittedCards v-for="submission in leftSubmissions" :key="submission.user_id"
@@ -668,8 +687,9 @@ const roundStatusMessage = computed(() => {
             <div class="w-full flex flex-row justify-around items-stretch gap-2 max-w-2xl">
                 <!-- Black Card -->
                 <div v-if="blackCard" class="bg-black h-64 w-full rounded-xl p-4 font-bold border-2 border-white z-10">
-                    <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
-                        :class="part.isGap ? 'text-violet-500' : 'text-white'">
+                    <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`" :class="part.isGap
+                        ? 'text-violet-500 whitespace-nowrap inline-block'
+                        : 'text-white break-words whitespace-pre-wrap'">
                         {{ part.isGap ? getWinnerTextAtGap(part.gapIndex) || '________'
                             : part.text }}
                     </span>
@@ -766,6 +786,12 @@ const roundStatusMessage = computed(() => {
 </template>
 
 <style scoped>
+/* .black-card-text {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: pre-wrap;
+} */
+
 .fade-enter-active,
 .fade-leave-active {
     transition: opacity 300ms ease;

@@ -5,7 +5,9 @@
                 <div class="hover:cursor-pointer" @click="navigateTo('/sets')">
                     <img src="~/assets/svg/back.svg" alt="Back" class="h-8 w-10" />
                 </div>
-                <input v-model="collection.name" ref="collectionNameInputRef" type="text" placeholder="new Card-Set" @keyup.enter="($event.target as HTMLInputElement | null)?.blur()" @blur="saveCollectionName(collectionId, collection.name)"
+                <input v-model="collection.name" ref="collectionNameInputRef" type="text" placeholder="new Card-Set"
+                    @keyup.enter="($event.target as HTMLInputElement | null)?.blur()"
+                    @blur="saveCollectionName(collectionId, collection.name)"
                     class="p-2 w-full text-white bg-transparent focus:outline-[#79F8B0] text-4xl font-bold">
                 </input>
             </div>
@@ -57,30 +59,36 @@
                             <div v-if="activeTab === 'page1'">
                                 <div class="flex flex-col gap-4">
                                     <EditorWhiteCard v-for="whiteCard in whiteCards" :key="whiteCard.id"
-                                        :card="whiteCard"
-                                        :editor-id="getWhiteEditorId(whiteCard.id)"
+                                        :card="whiteCard" :editor-id="getWhiteEditorId(whiteCard.id)"
                                         :can-edit="!activeEditorId || activeEditorId === getWhiteEditorId(whiteCard.id)"
                                         @update="(text) => saveUpdate(whiteCard.id, { text, updated_at: new Date().toISOString() })"
-                                        @edit-start="handleEditStart"
-                                        @edit-end="handleEditEnd"
+                                        @edit-start="handleEditStart" @edit-end="handleEditEnd"
                                         @delete="deleteCard(whiteCard.id, false)" />
                                 </div>
                             </div>
                             <div v-else>
                                 <div class="flex flex-col gap-4">
                                     <EditorBlackCard v-for="blackCard in blackCards" :key="blackCard.id"
-                                        :card="blackCard"
-                                        :editor-id="getBlackEditorId(blackCard.id)"
+                                        :card="blackCard" :editor-id="getBlackEditorId(blackCard.id)"
                                         :can-edit="!activeEditorId || activeEditorId === getBlackEditorId(blackCard.id)"
                                         @update="(data) => saveUpdate(blackCard.id, { text: data.text, number_of_gaps: data.number_of_gaps, updated_at: new Date().toISOString() })"
-                                        @edit-start="handleEditStart"
-                                        @edit-end="handleEditEnd"
+                                        @edit-start="handleEditStart" @edit-end="handleEditEnd"
                                         @delete="deleteCard(blackCard.id, true)" />
                                 </div>
                             </div>
                         </div>
                     </Transition>
                 </div>
+            </div>
+        </section>
+        <section class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] z-20">
+            <div class="w-full flex flex-row gap-4 max-w-2xl mx-auto">
+                <Button v-if="isOwner" variant="primary" size="lg" class="rounded-lg" @click="addCardToSet">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 5V19" stroke="black" stroke-width="2" stroke-linecap="round" />
+                        <path d="M5 12H19" stroke="black" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </Button>
             </div>
         </section>
     </main>
@@ -106,6 +114,38 @@ const blackCards = ref<Cards[]>([]);
 const isLoading = ref(true);
 const placeholderRows = [1, 2, 3];
 const activeEditorId = ref<string | null>(null);
+const isOwner = computed(() => {
+    const userId = user.value?.id ?? user.value?.sub ?? null;
+    return collection.value?.user_id === userId;
+});
+
+const isAdding = ref(false);
+
+async function addCardToSet() {
+    if (!isOwner.value || isAdding.value) return;
+    isAdding.value = true;
+
+    const isBlack = activeTab.value === "page2";
+    const insert = {
+        collection_id: collectionId,
+        text: isBlack ? "New black card" : "New white card",
+        is_black: isBlack,
+        number_of_gaps: isBlack ? 0 : null,
+    };
+
+    const { data, error } = await supabase
+        .from("cards")
+        .insert(insert)
+        .select("*")
+        .single();
+
+    if (!error && data) {
+        if (isBlack) blackCards.value.unshift(data);
+        else whiteCards.value.unshift(data);
+    }
+
+    isAdding.value = false;
+}
 
 const isUpdating = ref(false);
 

@@ -3,14 +3,12 @@
     <div ref="carouselContainerRef" class="carousel-container" @wheel.prevent="handleScroll"
       @touchstart.passive="handleTouchStart" @touchmove="handleTouchMove" @touchend="handleTouchEnd"
       @touchcancel="handleTouchEnd">
-      <article v-for="(item, index) in items" :key="String(item.id)" class="card"
-        :style="getCardStyle(item, index)"
+      <article v-for="(item, index) in items" :key="String(item.id)" class="card" :style="getCardStyle(item, index)"
         @click="handleCardClick(index)">
         <div class="card-inner">
           <div class="card-index">{{ index + 1 }}</div>
           <textarea :value="getCardText(item)" class="card-input" placeholder="Your answer..."
-            :ref="(el) => setTextareaRef(el, index)"
-            @focus="emit('focus-input')" @blur="emit('blur-input')"
+            :ref="(el) => setTextareaRef(el, index)" @focus="emit('focus-input')" @blur="emit('blur-input')"
             @input="onCardInput(index, item, $event)" />
         </div>
       </article>
@@ -115,7 +113,12 @@ const handleScroll = (event: WheelEvent) => {
   const now = Date.now();
   if (now - lastScrollAt < scrollLockMs) return;
 
-  const delta = event.deltaX > 0 ? 1 : -1;
+  const dominant = Math.abs(event.deltaX) > Math.abs(event.deltaY)
+    ? event.deltaX
+    : event.deltaY;
+
+  if (dominant === 0) return;
+  const delta = dominant > 0 ? 1 : -1;
 
   if (
     (delta === -1 && current.value <= 0) ||
@@ -203,7 +206,7 @@ onUnmounted(() => {
 
 .card {
   @apply absolute w-52 h-64 bg-white rounded-lg border-black p-4 shadow-lg cursor-pointer;
-  border: 3px solid;
+  border: 2px solid;
   transition: border-color 200ms ease, background-color 200ms ease, transform 300ms ease;
 }
 

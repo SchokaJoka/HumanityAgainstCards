@@ -2,7 +2,7 @@
   <div class="judging-wrap">
     <div v-for="(row, rowIndex) in rows" :key="rowIndex" class="judging-row"
       :style="{ zIndex: String(rowIndex), marginTop: rowIndex > 0 ? `-${rowOverlapPx}px` : '0px' }">
-      <div class="judging-container" @wheel.prevent="handleScroll($event)"
+      <div class="judging-container" :style="getRowStyle(row)" @wheel.prevent="handleScroll($event)"
         @touchstart.passive="handleTouchStart($event)" @touchmove.prevent="handleTouchMove($event)"
         @touchend="handleTouchEnd()" @touchcancel="handleTouchEnd()">
         <article v-for="(item, idx) in row" :key="String(item.id)" class="card"
@@ -104,6 +104,12 @@ const currentForRow = (rowIndex: number) => {
   return Math.min(sharedCurrent.value, maxIndexForRow(rowIndex));
 };
 
+const getRowStyle = (row: any[]) => {
+  const count = row?.length ?? 1;
+  const width = CARD_WIDTH_PX + spacing * Math.max(0, count - 1) + 24; // extra padding for rotation
+  return { width: `${width}px` };
+};
+
 const rowOverlapPx = computed(() => {
   const baseRow = rows.value[0] ?? [];
   if (!baseRow.length) return DEFAULT_OVERLAP_PX;
@@ -167,9 +173,14 @@ const handleScroll = (e: WheelEvent) => {
   if (isMobile.value) return;
   const now = Date.now();
   if (now - lastScrollAt.value < scrollLockMs) return;
-  const delta = e.deltaX > 0 ? 1 : -1;
+
+  const dominant = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+  if (dominant === 0) return;
+
+  const delta = dominant > 0 ? 1 : -1;
   const next = Math.max(0, Math.min(sharedCurrent.value + delta, maxIndexGlobal.value));
   if (next === sharedCurrent.value) return;
+
   sharedCurrent.value = next;
   lastScrollAt.value = now;
 };
@@ -227,15 +238,15 @@ onUnmounted(() => {
 
 <style scoped>
 .judging-wrap {
-  @apply w-full h-full flex flex-col items-end justify-end overflow-y-visible overflow-x-clip gap-10;
+  @apply w-full h-full flex flex-col items-end justify-end overflow-visible gap-10;
 }
 
 .judging-row {
-  @apply w-full h-full max-h-72 flex items-center justify-center overflow-visible;
+  @apply w-full min-h-64 flex items-center justify-center overflow-visible;
 }
 
 .judging-container {
-  @apply relative w-52 h-full flex items-center justify-center overflow-visible cursor-pointer;
+  @apply relative h-64 flex items-center justify-center overflow-visible cursor-pointer my-4;
   touch-action: none;
 }
 

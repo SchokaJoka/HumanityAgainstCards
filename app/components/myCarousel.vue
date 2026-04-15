@@ -15,6 +15,8 @@
 </template>
 
 <script setup lang="ts">
+
+
 // PROPS / EMITS
 // ============================================================
 const props = defineProps<{
@@ -93,7 +95,12 @@ const handleScroll = (event: WheelEvent) => {
   const now = Date.now();
   if (now - lastScrollAt < scrollLockMs) return;
 
-  const delta = event.deltaX > 0 ? 1 : -1;
+  const dominant = Math.abs(event.deltaX) > Math.abs(event.deltaY)
+    ? event.deltaX
+    : event.deltaY;
+
+  if (dominant === 0) return;
+  const delta = dominant > 0 ? 1 : -1;
 
   if (
     (delta === -1 && current.value <= 0) ||

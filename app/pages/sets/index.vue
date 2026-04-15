@@ -9,13 +9,15 @@
             </div>
             <div class="w-full flex flex-row justify-center z-10">
                 <div class="w-full flex flex-row z-10 max-w-3xl">
-                    <button class="w-full px-3 py-4 text-xl font-semibold rounded-t-lg transition-all duration-300 ease-out"
+                    <button
+                        class="w-full px-3 py-4 text-xl font-semibold rounded-t-lg transition-all duration-300 ease-out"
                         :class="activeTab === 'page1'
                             ? 'text-black bg-[#FFA3C0]'
                             : 'text-white bg-[#C06F9B] hover:bg-neutral-250'" @click="activeTab = 'page1'">
                         My Sets
                     </button>
-                    <button class="w-full px-3 py-4 text-xl font-semibold rounded-t-lg transition-all duration-300 ease-out"
+                    <button
+                        class="w-full px-3 py-4 text-xl font-semibold rounded-t-lg transition-all duration-300 ease-out"
                         :class="activeTab === 'page2'
                             ? 'text-black bg-[#FFA3C0]'
                             : 'text-white bg-[#C06F9B] hover:bg-neutral-250'" @click="activeTab = 'page2'">
@@ -48,7 +50,8 @@
                                         class="relative w-full flex flex-row items-center gap-4 bg-neutral-50 p-5 rounded-lg border border-[3px] border-black hover:cursor-pointer">
                                         <img src="~/assets/svg/card-set-icon.svg" alt="Card Set" class="h-9 w-9" />
                                         <p class="text-black text-xl font-semibold">{{ collection.name }}</p>
-                                        <div class="absolute top-2 right-1 hover:cursor-pointer" @click="">
+                                        <div class="absolute top-2 right-1 hover:cursor-pointer"
+                                            @click.stop="openSetMenu($event, collection)">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="29" height="29"
                                                 viewBox="0 0 29 29" fill="none">
                                                 <path
@@ -79,7 +82,33 @@
                 </div>
             </div>
         </section>
+        <!-- Set actions overlay -->
+        <div v-if="showSetMenu" class="fixed inset-0 z-40">
+            <div class="absolute inset-0 bg-black/40" @click="closeSetMenu" />
+            <div class="absolute bg-white text-black rounded-lg p-4 w-64"
+                :style="{ top: `${setMenuPosition.top}px`, left: `${setMenuPosition.left}px` }" @click.stop>
+                <label class="text-sm font-semibold">Rename</label>
+                <input v-model="renameValue" class="w-full border mt-2 p-2 rounded" />
+                <div class="mt-4 flex gap-2">
+                    <Button size="sm" variant="primary" @click="renameSet">Rename</Button>
+                    <Button size="sm" variant="secondary" @click="openDeleteConfirm">Delete</Button>
+                </div>
+            </div>
+        </div>
 
+        <!-- Delete confirm overlay -->
+        <div v-if="showDeleteConfirm" class="fixed inset-0 z-50">
+            <div class="absolute inset-0 bg-black/40" @click="showDeleteConfirm = false" />
+            <div class="absolute inset-0 flex items-center justify-center">
+                <div class="bg-white text-black rounded-lg p-6 w-72">
+                    <p class="font-semibold">Do you want to delete this set?</p>
+                    <div class="mt-4 flex gap-2 justify-end">
+                        <Button size="sm" variant="secondary" @click="showDeleteConfirm = false">No</Button>
+                        <Button size="sm" variant="primary" @click="confirmDelete">Yes</Button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <section class="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] z-20">
             <div class="w-full max-w-2xl mx-auto">
                 <Button variant="primary" size="lg" class="rounded-lg" @click="navigateTo('/sets/create')">
@@ -107,10 +136,77 @@ const publicCollections = ref<CardCollections[]>([]);
 const isLoading = ref(true);
 const placeholderRows = [1, 2, 3];
 
+const showSetMenu = ref(false);
+const setMenuPosition = ref({ x: 0, y: 0 });
+const showDeleteConfirm = ref(false);
+const activeSet = ref<CardCollections | null>(null);
+const renameValue = ref("");
+
 type CardCollections = Tables<"collections">;
 
 const activeTab = ref("page1");
 const { headerEl, updateHeaderHeight } = useHeaderHeight("--sets-header-h");
+
+function openSetMenu(ev: MouseEvent, collection: CardCollections) {
+    activeSet.value = collection;
+    renameValue.value = collection.name ?? "";
+    showSetMenu.value = true;
+
+    const target = ev.currentTarget as HTMLElement | null;
+    if (!target) return;
+
+    const rect = target.getBoundingClientRect();
+    const menuWidth = 256; // w-64
+    const padding = 8;
+
+    const left = Math.min(
+        window.innerWidth - menuWidth - padding,
+        Math.max(padding, rect.right - menuWidth)
+    );
+    const top = rect.bottom + padding;
+
+    setMenuPosition.value = { top, left };
+}
+
+function closeSetMenu() {
+    showSetMenu.value = false;
+}
+
+function openDeleteConfirm() {
+    showSetMenu.value = false;
+    showDeleteConfirm.value = true;
+}
+
+async function renameSet() {
+    if (!activeSet.value) return;
+    const userId = user.value?.id ?? user.value?.sub;
+    const trimmed = renameValue.value.trim();
+    if (!trimmed) return;
+
+    await supabase
+        .from("collections")
+        .update({ name: trimmed, updated_at: new Date().toISOString() })
+        .eq("id", activeSet.value.id)
+        .eq("user_id", userId);
+
+    const idx = userCollections.value.findIndex(c => c.id === activeSet.value?.id);
+    if (idx !== -1) userCollections.value[idx].name = trimmed;
+    showSetMenu.value = false;
+}
+async function confirmDelete() {
+    if (!activeSet.value) return;
+    const userId = user.value?.id ?? user.value?.sub;
+
+    await supabase.from("cards").delete().eq("collection_id", activeSet.value.id);
+    await supabase
+        .from("collections")
+        .delete()
+        .eq("id", activeSet.value.id)
+        .eq("user_id", userId);
+
+    userCollections.value = userCollections.value.filter(c => c.id !== activeSet.value?.id);
+    showDeleteConfirm.value = false;
+}
 
 onMounted(async () => {
     const userId = user.value?.id ?? user.value?.sub;
