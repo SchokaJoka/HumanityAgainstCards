@@ -656,7 +656,7 @@ const roundStatusMessage = computed(() => {
                             <!-- Left column -->
                             <div class="flex flex-1 min-w-0 flex-col items-center gap-4 pt-8 ">
                                 <div v-if="blackCard"
-                                    class="bg-black w-full max-w-[13rem] aspect-[13/16] rounded-xl p-4 font-bold border-2 border-black">
+                                    class="bg-black w-full max-w-[13rem] aspect-[13/16] overflow-y-auto rounded-xl p-4 font-bold border-2 border-black">
                                     <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`"
                                         :class="part.isGap
                                             ? 'text-violet-500 whitespace-nowrap inline-block'
@@ -682,28 +682,31 @@ const roundStatusMessage = computed(() => {
         </section>
         <!-- Round End Section -->
         <section name="round-end" v-if="gameStarted && roundStatus === 'round_end'"
-            class="w-full mt-[var(--sets-header-h)] min-h-[calc(100dvh-var(--sets-header-h))] flex flex-col justify-start items-center gap-4 p-4">
+            class="w-full mt-[var(--sets-header-h)] min-h-[calc(100dvh-var(--sets-header-h))] flex flex-col items-center gap-4 p-4">
             <!-- Winner Submission -->
-            <div class="w-full flex flex-row justify-around items-stretch gap-2 max-w-2xl">
+            <div class="w-full flex flex-row justify-between gap-2 max-w-2xl">
                 <!-- Black Card -->
-                <div v-if="blackCard" class="bg-black h-64 w-full rounded-xl p-4 font-bold border-2 border-white z-10">
-                    <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`" :class="part.isGap
-                        ? 'text-violet-500 whitespace-nowrap inline-block'
-                        : 'text-white break-words whitespace-pre-wrap'">
-                        {{ part.isGap ? getWinnerTextAtGap(part.gapIndex) || '________'
-                            : part.text }}
-                    </span>
+                <div class="flex-1 min-w-0 flex justify-center">
+                    <div v-if="blackCard"
+                        class="rounded-xl w-52 h-64 overflow-y-auto overflow-x-visible p-4 bg-black text-normal font-bold text-white border-2 border-white">
+                        <span v-for="(part, index) in blackCardTextParts" :key="`black-card-${index}`" :class="part.isGap
+                            ? 'text-violet-500 break-words whitespace-pre-wrap'
+                            : 'text-white break-words whitespace-pre-wrap'">
+                            {{ part.isGap ? getWinnerTextAtGap(part.gapIndex) || '________'
+                                : part.text }}
+                        </span>
+                    </div>
                 </div>
-                <!-- Winner White Cards -->
-                <div class="w-full min-h-full flex flex-col">
-                    <div v-for="(cardText, index) in winnerCards"
-                        class="bg-white p-4 pr-8  h-full relative rounded-t-xl border-x-2 border-t-2" :class="[
-                            isCzar ? 'border-white' : 'border-black',
-                            index === winnerCards.length - 1 ? 'rounded-b-xl border-b-2' : '',
-                            index === 0 ? 'pb-8' : '-mt-6 pb-16'
 
-                        ]">
-                        <span class="text-black font-bold">
+                <!-- Winner White Cards -->
+                <div class="flex-1 min-w-0 flex flex-col items-center gap-4">
+                    <div v-for="(cardText, index) in winnerCards" :key="`winner-card-${index}`" :class="[
+                        'bg-white w-full max-w-[13rem] min-h-32 max-h-64 h-auto overflow-y-auto relative rounded-t-xl border-x-2 border-t-2 p-4',
+                        isCzar ? 'border-white' : 'border-black',
+                        index === winnerCards.length - 1 ? 'rounded-b-xl border-b-2' : '',
+                        index === 0 ? 'pb-8' : '-mt-6 pb-16'
+                    ]">
+                        <span class="text-black font-bold break-words whitespace-pre-wrap">
                             {{ cardText }}
                         </span>
                         <div
@@ -716,6 +719,8 @@ const roundStatusMessage = computed(() => {
                     </div>
                 </div>
             </div>
+
+
 
             <!-- Player Scores -->
             <div class="w-full h-full flex flex-col max-w-2xl gap-4 p-4 overflow-y-auto">
@@ -734,7 +739,6 @@ const roundStatusMessage = computed(() => {
                                 <div class="flex flex-row items-center gap-2">
                                     <div class="border-2 rounded-full flex items-center justify-center text-white font-bold mb-1 size-12"
                                         :class="index === displayedPlayers.length - 1 ? 'border-white' : 'border-black'">
-                                        <!-- avatar images -->
                                         <img :src="getAvatarSrc(player.metadata?.avatar_url)" alt="Player avatar"
                                             class="size-10 rounded-full object-cover" />
                                     </div>

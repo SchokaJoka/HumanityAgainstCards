@@ -85,26 +85,24 @@
         <!-- Set actions overlay -->
         <div v-if="showSetMenu" class="fixed inset-0 z-40">
             <div class="absolute inset-0 bg-black/40" @click="closeSetMenu" />
-            <div class="absolute bg-white text-black rounded-lg p-4 w-64"
+            <div class="absolute bg-white text-black rounded p-4"
                 :style="{ top: `${setMenuPosition.top}px`, left: `${setMenuPosition.left}px` }" @click.stop>
-                <label class="text-sm font-semibold">Rename</label>
-                <input v-model="renameValue" class="w-full border mt-2 p-2 rounded" />
-                <div class="mt-4 flex gap-2">
-                    <Button size="sm" variant="primary" @click="renameSet">Rename</Button>
-                    <Button size="sm" variant="secondary" @click="openDeleteConfirm">Delete</Button>
+                <div class="flex flex-col gap-2">
+                    <button @click="renameSet">Rename</button>
+                    <button @click="openDeleteConfirm">Delete</button>
                 </div>
             </div>
         </div>
 
         <!-- Delete confirm overlay -->
-        <div v-if="showDeleteConfirm" class="fixed inset-0 z-50">
-            <div class="absolute inset-0 bg-black/40" @click="showDeleteConfirm = false" />
-            <div class="absolute inset-0 flex items-center justify-center">
-                <div class="bg-white text-black rounded-lg p-6 w-72">
-                    <p class="font-semibold">Do you want to delete this set?</p>
-                    <div class="mt-4 flex gap-2 justify-end">
-                        <Button size="sm" variant="secondary" @click="showDeleteConfirm = false">No</Button>
-                        <Button size="sm" variant="primary" @click="confirmDelete">Yes</Button>
+        <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 bg-black/40" @click="showDeleteConfirm = false">
+            <div class="absolute inset-0 flex items-center justify-center p-8">
+                <div class="bg-white text-black flex flex-col rounded-lg p-6 w-full max-w-xs">
+                    <p class="font-semibold text-2xl">Do you want to delete this set?</p>
+                    <div class="mt-16 flex flex-row justify-between w-full gap-8">
+                        <Button size="md" variant="secondary" class="rounded" block
+                            @click="showDeleteConfirm = false">No</Button>
+                        <Button size="md" variant="primary" class="rounded" block @click="confirmDelete">Yes</Button>
                     </div>
                 </div>
             </div>
@@ -137,10 +135,10 @@ const isLoading = ref(true);
 const placeholderRows = [1, 2, 3];
 
 const showSetMenu = ref(false);
-const setMenuPosition = ref({ x: 0, y: 0 });
+
+const setMenuPosition = ref({ top: 0, right: 0 });
 const showDeleteConfirm = ref(false);
 const activeSet = ref<CardCollections | null>(null);
-const renameValue = ref("");
 
 type CardCollections = Tables<"collections">;
 
@@ -149,7 +147,6 @@ const { headerEl, updateHeaderHeight } = useHeaderHeight("--sets-header-h");
 
 function openSetMenu(ev: MouseEvent, collection: CardCollections) {
     activeSet.value = collection;
-    renameValue.value = collection.name ?? "";
     showSetMenu.value = true;
 
     const target = ev.currentTarget as HTMLElement | null;
@@ -159,13 +156,13 @@ function openSetMenu(ev: MouseEvent, collection: CardCollections) {
     const menuWidth = 256; // w-64
     const padding = 8;
 
-    const left = Math.min(
+    const right = Math.min(
         window.innerWidth - menuWidth - padding,
         Math.max(padding, rect.right - menuWidth)
     );
     const top = rect.bottom + padding;
 
-    setMenuPosition.value = { top, left };
+    setMenuPosition.value = { top, right };
 }
 
 function closeSetMenu() {
@@ -180,7 +177,16 @@ function openDeleteConfirm() {
 async function renameSet() {
     if (!activeSet.value) return;
     const userId = user.value?.id ?? user.value?.sub;
-    const trimmed = renameValue.value.trim();
+    if (!userId) return;
+
+    const currentName = activeSet.value.name ?? "";
+    const nextName = window.prompt("Enter a new set name", currentName);
+    if (nextName === null) {
+        showSetMenu.value = false;
+        return;
+    }
+
+    const trimmed = nextName.trim();
     if (!trimmed) return;
 
     await supabase
@@ -190,12 +196,14 @@ async function renameSet() {
         .eq("user_id", userId);
 
     const idx = userCollections.value.findIndex(c => c.id === activeSet.value?.id);
-    if (idx !== -1) userCollections.value[idx].name = trimmed;
+    const selectedCollection = idx !== -1 ? userCollections.value[idx] : null;
+    if (selectedCollection) selectedCollection.name = trimmed;
     showSetMenu.value = false;
 }
 async function confirmDelete() {
     if (!activeSet.value) return;
     const userId = user.value?.id ?? user.value?.sub;
+    if (!userId) return;
 
     await supabase.from("cards").delete().eq("collection_id", activeSet.value.id);
     await supabase

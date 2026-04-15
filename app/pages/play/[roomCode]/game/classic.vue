@@ -788,7 +788,7 @@ const dev2gaps = ref(false);
               <!-- Winner White Cards -->
               <div class="w-full max-w-[26rem] min-h-full flex flex-col">
                 <div v-for="cardText, index in winnerCards"
-                  class="bg-white p-4 pr-8 shadow-xl h-full w-full relative rounded-t-xl border-black border-x-2 border-t-2"
+                  class="bg-white p-4 pr-8 shadow-xl w-full aspect-[13/16] overflow-y-auto relative rounded-t-xl border-black border-x-2 border-t-2"
                   :class="[
                     index === winnerCards.length - 1 ? 'rounded-b-xl border-b-2' : '',
                     index === 0 ? 'pb-8' : '-mt-6 pb-16'

@@ -204,11 +204,6 @@ onUnmounted(() => {
   touch-action: none;
 }
 
-.card {
-  @apply absolute w-52 h-64 bg-white rounded-lg border-black p-4 shadow-lg cursor-pointer;
-  border: 2px solid;
-  transition: border-color 200ms ease, background-color 200ms ease, transform 300ms ease;
-}
 
 .card-inner {
   @apply w-full h-full flex flex-col gap-2;
@@ -218,14 +213,19 @@ onUnmounted(() => {
   @apply fixed top-2 right-2 size-8 bg-black flex items-center justify-center rounded-full text-xs font-black text-white;
 }
 
+.card {
+  @apply absolute w-52 h-64 bg-white rounded-lg border-black p-4 shadow-lg cursor-pointer overflow-y-auto;
+  border: 2px solid;
+  transition: border-color 200ms ease, background-color 200ms ease, transform 300ms ease;
+}
+
 .card-input {
-  @apply w-full h-full bg-transparent text-gray-900 font-medium text-base outline-none;
+  @apply w-full h-full bg-transparent text-gray-900 font-medium text-base outline-none overflow-y-auto;
   border: 0;
   resize: none;
   pointer-events: none;
-}
-
-.card-input::placeholder {
-  color: rgb(107 114 128);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 </style>

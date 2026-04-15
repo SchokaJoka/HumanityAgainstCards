@@ -185,7 +185,7 @@ onUnmounted(() => {
 }
 
 .card {
-  @apply absolute w-52 h-64 rounded-xl shadow-xl bg-white cursor-pointer flex items-start justify-start border-black p-6;
+  @apply absolute w-52 h-64 rounded-xl shadow-xl bg-white cursor-pointer flex items-start justify-start border-black p-6 overflow-y-auto;
   border: 3px solid;
   transition: border-color 200ms ease, background-color 200ms ease, transform 300ms ease;
 }

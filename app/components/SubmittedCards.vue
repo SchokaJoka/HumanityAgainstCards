@@ -21,11 +21,11 @@ const getCardText = (id: string) => cardTextById.value.get(id) ?? "Unknown card"
 </script>
 
 <template>
-    <div class="submitted-card-container w-full max-w-[13rem]" :class="isSingle ? 'flex justify-center' : ''">
+    <div class="submitted-card-container w-full max-w-[13rem] " :class="isSingle ? 'flex justify-center' : ''">
         <button type="button" class="submitted-stack text-left"
-            :class="isSingle ? 'w-full max-w-[13rem] aspect-[13/16]' : 'w-full'">
+            :class="isSingle ? 'w-full max-w-[13rem] aspect-[13/16] ' : 'w-full'">
             <div v-for="(cardId, index) in submittedCards" :key="`${submission.user_id}-${cardId}-${index}`"
-                class="bg-white p-4 pr-8 shadow-xl w-full aspect-[13/16] relative rounded-t-xl border-black border-x-2 border-t-2"
+                class="bg-white p-4 pr-8 shadow-xl w-full min-h-32 max-h-64 h-auto overflow-y-auto relative rounded-t-xl border-black border-x-2 border-t-2"
                 :class="[
                     index === submittedCards.length - 1 ? 'rounded-b-xl border-b-2' : '',
                     isSingle ? '' : index === 0 ? 'pb-8' : '-mt-6 pb-16'
