@@ -84,8 +84,7 @@
     <section class="relative flex flex-col items-center justify-start h-full w-full max-w-2xl px-16 gap-16"
       :style="{ paddingTop: 'var(--home-header-h, 0px)' }">
       <!-- Welcome -->
-      <div class="flex flex-col content-between justify-center w-full gap-8"
-        :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
+      <div class="flex flex-col w-full gap-8" :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
         <div class="w-full flex flex-row gap-4 flex-wrap items-end justify-between">
           <h1 class="h-fit text-5xl font-extrabold mb-4">
             <span class="block">Humanity</span>
@@ -97,13 +96,13 @@
         </div>
         <Button @click="createGame()" variant="primary" size="lg" block class="">Create Game</Button>
         <Button @click="joinGame()" variant="primary" size="lg" block class="">Join Game</Button>
-        <div class="flex w-full justify-center">
+        <div class="mt-auto mb-10 w-full flex justify-center">
           <img src="~/assets/svg/weui_arrow-outlined.svg" />
         </div>
       </div>
 
       <!-- How To Play -->
-      <div class="flex flex-col gap-1 justify-center" :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
+      <div class="flex flex-col gap-1 justify-start" :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
         <p class="w-full h-fit text-lg font-semibold">
           <span class="text-4xl font-extrabold block mb-4">How to Play</span>
           Each player starts with 10 white cards.<br><br>
