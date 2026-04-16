@@ -84,7 +84,7 @@
     <section class="relative flex flex-col items-center justify-start h-full w-full max-w-2xl px-16 gap-16"
       :style="{ paddingTop: 'var(--home-header-h, 0px)' }">
       <!-- Welcome -->
-      <div class="flex flex-col items-center justify-center w-full gap-8"
+      <div class="flex flex-col content-between justify-center w-full gap-8"
         :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
         <div class="w-full flex flex-row gap-4 flex-wrap items-end justify-between">
           <h1 class="h-fit text-5xl font-extrabold mb-4">
@@ -97,6 +97,9 @@
         </div>
         <Button @click="createGame()" variant="primary" size="lg" block class="">Create Game</Button>
         <Button @click="joinGame()" variant="primary" size="lg" block class="">Join Game</Button>
+        <div class="flex w-full justify-center">
+          <img src="~/assets/svg/weui_arrow-outlined.svg" />
+        </div>
       </div>
 
       <!-- How To Play -->
@@ -104,7 +107,7 @@
         <p class="w-full h-fit text-lg font-semibold">
           <span class="text-4xl font-extrabold block mb-4">How to Play</span>
           Each player starts with 10 white cards.<br><br>
-          Every round a Czar is chosen and they  draw a random black card. <br><br>
+          Every round a Czar is chosen and they draw a random black card. <br><br>
           Every player has to submit the amount of white cards needed to answer the black card.<br><br>
           The Czar picks their favorite white card. Winner receives 1 point!
         </p>
