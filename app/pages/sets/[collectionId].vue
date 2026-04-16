@@ -267,8 +267,6 @@ async function saveUpdate(cardId: string, updates: any) {
 }
 
 async function deleteCard(cardId: string, isBlack: boolean) {
-    if (!confirm("Are you sure you want to delete this card? This action cannot be undone.")) return;
-
     const { error } = await supabase
         .from("cards")
         .delete()

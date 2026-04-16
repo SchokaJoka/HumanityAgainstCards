@@ -25,10 +25,10 @@ const getCardText = (id: string) => cardTextById.value.get(id) ?? "Unknown card"
         <div class="break-inside-avoid mb-4 text-left"
             :class="isSingle ? 'w-full' : 'w-full'">
             <div v-for="(cardId, index) in submittedCards" :key="`${submission.user_id}-${cardId}-${index}`"
-                class="bg-white p-4 pr-8 w-full min-h-56 max-h-64 h-auto overflow-y-auto relative rounded-t-xl border-black border-x-2 border-t-2"
+                class="bg-white p-4 pr-8 w-full max-h-64 h-auto overflow-y-auto relative rounded-t-xl border-black border-x-2 border-t-2"
                 :class="[
                     index === submittedCards.length - 1 ? 'rounded-b-xl border-b-2' : '',
-                    isSingle ? '' : index === 0 ? 'pb-8' : '-mt-6 pb-16'
+                    isSingle ? '' : index === 0 ? 'pb-8' : '-mt-6 pb-16 min-h-56'
                 ]">
                 <span class="font-bold text-black [overflow-wrap:anywhere] [word-break:break-word] whitespace-pre-wrap">
                     {{ getCardText(cardId) }}

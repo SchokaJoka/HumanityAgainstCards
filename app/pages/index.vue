@@ -87,10 +87,10 @@
       <div class="flex flex-col items-center justify-center w-full gap-8"
         :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
         <div class="w-full flex flex-row gap-4 flex-wrap items-end justify-between">
-          <h1 class="h-fit text-5xl font-extrabold mb-16">
+          <h1 class="h-fit text-5xl font-extrabold mb-4">
             <span class="block">Humanity</span>
-            <span class="block pl-6">Against</span>
-            <span class="block pl-12 text-[#FFB077]">
+            <span class="block">Against</span>
+            <span class="block text-[#FFB077]">
               {{ user?.user_metadata?.full_name || "Cards" }}
             </span>
           </h1>
