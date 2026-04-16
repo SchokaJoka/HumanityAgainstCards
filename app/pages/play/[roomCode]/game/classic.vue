@@ -640,7 +640,7 @@ const dev2gaps = ref(false);
 </script>
 
 <template>
-  <main class="flex flex-col items-center w-full h-lvh overflow-w-hidden overflow-y-auto transition-color" :class="roundStatus === 'round_end'
+  <main class="flex flex-col items-center w-full min-h-dvh overflow-x-hidden overflow-y-auto pt-[var(--sets-header-h)] pb-[calc(env(safe-area-inset-bottom)+7rem)] transition-color" :class="roundStatus === 'round_end'
     ? 'bg-sky-300 text-black'
     : isCzar
       ? 'bg-black text-white'
@@ -757,7 +757,7 @@ const dev2gaps = ref(false);
       <!-- Game Section -->
       <section name="game-section" v-if="gameStarted && roundStatus !== 'lobby' && roundStatus !== 'round_end'"
         key="game-section"
-        class="w-full mt-[var(--sets-header-h)] h-[100lvh] flex flex-col justify-start items-center gap-4 py-4"
+        class="w-full min-h-[calc(100dvh-var(--sets-header-h))] flex flex-col justify-start items-center gap-4 py-4"
         :class="isCzar ? 'flex-col-reverse justify-start' : 'flex-col justify-start'">
         <TransitionGroup name="stack-fade" appear>
           <!-- Black Card -->
@@ -812,7 +812,7 @@ const dev2gaps = ref(false);
 
       <!-- Round End Section -->
       <section name="round-end" v-if="gameStarted && roundStatus === 'round_end'" key="round-end-section"
-        class="w-full mt-[var(--sets-header-h)] h-100lvh flex flex-col justify-start items-center gap-4 p-4">
+        class="w-full min-h-[calc(100dvh-var(--sets-header-h))] flex flex-col justify-start items-center gap-4 p-4">
         <TransitionGroup name="stack-fade" appear>
           <div key="round-end-container" class="w-full flex flex-row justify-around items-stretch gap-2 max-w-2xl">
             <TransitionGroup name="stack-fade" appear>
