@@ -356,9 +356,10 @@ async function shareRoomCode() {
   if (navigator.share) {
     try {
       await navigator.share({
-        title: "Join my game room on Cards Against Humanity Online!",
-        text: `Join my game room on Cards Against Humanity Online! Use the code: ${roomCode.value}`,
+        title: "Humanitary Against Cards",
+        text: `Join my game on Humanity Against Cards Online!\nUse the code: ${roomCode.value}`,
         url: window.location.href,
+        
       });
     } catch (error) {
       console.error("Error sharing room code:", error);

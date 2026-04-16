@@ -130,7 +130,6 @@ export function useGameManager() {
         set_id: collectionIds,
         room_id: roomId,
         // at least 4 at most 8 cards per player depending on how big set is. but if once started with for example 4 cards per player a game it should always be 4 in this room and so it is for example if started with 8
-        cardsPerPlayer: mode === "creative" ? null : 4,
         dev2gaps: dev2gaps,
         mode: mode,
       };

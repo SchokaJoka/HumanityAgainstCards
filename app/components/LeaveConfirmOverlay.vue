@@ -25,7 +25,7 @@ function onSaveSet() { emit('save-set'); }
 
 <template>
     <transition name="fade">
-        <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center text-black bg-sky-300">
+        <div v-if="show" class="fixed inset-0 z-50 h-lvh flex items-center justify-center text-black bg-sky-300">
             <header ref="headerEl" class="fixed top-0 w-full flex items-center justify-start p-4 z-40">
                 <div class="w-full flex flex-row gap-4 items-center">
                     <div class="cursor-pointer"

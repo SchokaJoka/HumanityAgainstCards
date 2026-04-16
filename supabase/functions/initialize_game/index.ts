@@ -28,13 +28,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const {
-      set_id = null,
-      room_id,
-      cardsPerPlayer = null,
-      dev2gaps = false,
-      mode = "classic",
-    } = body;
+    const { set_id = null, room_id, dev2gaps = false, mode = "classic" } = body;
 
     // 1. Get room members to determine Czar and deal cards
     const { data: members, error: membersErr } = await supabase
@@ -81,16 +75,51 @@ Deno.serve(async (req: Request) => {
 
       if (whiteCardsErr || blackCardsErr) throw whiteCardsErr || blackCardsErr;
 
+      const playersCount = members.length;
+      const whiteCount = whiteCards?.length ?? 0;
+      const maxPerPlayer = Math.floor(whiteCount / playersCount);
+
+      if (maxPerPlayer < 4) {
+        return new Response(
+          JSON.stringify({
+            error: "Set too small to deal 4 cards per player.",
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const handSize = Math.min(8, maxPerPlayer);
+      const requiredWhiteCards = playersCount * handSize;
+
+      if (whiteCount < requiredWhiteCards) {
+        return new Response(
+          JSON.stringify({
+            error: "Not enough white cards across selected collections.",
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
       // 3. Shuffle White Cards & Build Hand Inserts
       const whitePool = (whiteCards ?? [])
         .map((c: any) => c.id)
         .sort(() => Math.random() - 0.5);
-      const handInserts: any[] = [];
+      const handInserts: {
+        user_id: string;
+        card_id: string;
+        room_id: string;
+      }[] = [];
       let poolIndex = 0;
 
       for (const m of members) {
         // TODO: extended mode logic needs 1 less card for every player.
-        for (let k = 0; k < cardsPerPlayer; k++) {
+        for (let k = 0; k < handSize; k++) {
           if (poolIndex >= whitePool.length) break;
           handInserts.push({
             user_id: m.user_id,
@@ -100,11 +129,9 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // Ensure any previous ownership for these card_ids in this room is cleared
-      // (commented out in original—kept commented)
-
-      // Insert new hand assignments
-      insertPromises.push(supabase.from("hand_cards").insert(handInserts));
+      if (handInserts.length > 0) {
+        insertPromises.push(supabase.from("hand_cards").insert(handInserts));
+      }
 
       // 4. Handle Remaining White Cards
       const remainingWhite = whitePool
@@ -139,7 +166,6 @@ Deno.serve(async (req: Request) => {
           .single();
         if (roomErr) throw roomErr;
 
-        // Then spread existing metadata and override/add new fields
         insertPromises.push(
           supabase
             .from("rooms")
@@ -151,32 +177,12 @@ Deno.serve(async (req: Request) => {
                 round_status: "round_start",
                 set_id: set_id,
                 round: 1,
-                handSize: cardsPerPlayer,
+                handSize: handSize,
                 current_winner: null,
                 mode: mode,
               },
             })
             .eq("id", room_id),
-        );
-      }
-
-      // Ensure there are enough white cards to deal to players.
-      // Minimum is 4 per player, but if cardsPerPlayer is provided and greater, require that many.
-      const minPerPlayer = 4;
-      const perPlayer = Math.max(minPerPlayer, cardsPerPlayer ?? minPerPlayer);
-      const requiredWhiteCards = (members?.length ?? 0) * perPlayer;
-      if ((whiteCards?.length ?? 0) < requiredWhiteCards) {
-        console.error(
-          `[initialize_game] Not enough white cards: have ${whiteCards?.length ?? 0}, need ${requiredWhiteCards}`,
-        );
-        return new Response(
-          JSON.stringify({
-            error: `Not enough white cards across selected collections.`,
-          }),
-          {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
         );
       }
     } else {
@@ -231,11 +237,6 @@ Deno.serve(async (req: Request) => {
     } catch (err) {
       console.warn("Failed to update room_members statuses:", err);
     }
-
-    // NOTE: we intentionally do NOT send a realtime REST broadcast here.
-    // Clients should react to the updated rooms.metadata (Postgres realtime)
-    // and/or to room_members changes. This avoids potential channel/topic
-    // mismatches when clients reuse existing channels.
 
     return new Response(JSON.stringify({ success: true, czar_id: czarId }), {
       status: 200,

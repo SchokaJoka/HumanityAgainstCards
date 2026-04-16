@@ -12,7 +12,7 @@
     </header>
 
     <main
-      class="w-full flex flex-col items-center justify-between gap-4 max-w-3xl p-4 h-[calc(100dvh-var(--profile-header-h))] mt-[var(--profile-header-h)]">
+      class="w-full flex flex-col items-center justify-between gap-4 max-w-3xl p-4 h-[100lvh] mt-[var(--profile-header-h)]">
       <template v-if="user && !user.is_anonymous">
         <div class="w-full flex flex-col items-center justify-center gap-4">
           <div
@@ -64,13 +64,6 @@
             </div>
           </div>
         </div>
-        <div class="w-full flex flex-col items-center justify-center">
-          <Button variant="secondary" size="md" @click="handleLogout">
-            Logout
-          </Button>
-        </div>
-
-
       </template>
 
       <template v-else>
@@ -97,6 +90,11 @@
         {{ successMessage }}
       </div>
     </Transition>
+    <div class="fixed w-full bottom-[max(env(safe-area-inset-bottom),1.5rem)] flex flex-col items-center justify-center">
+          <Button variant="secondary" size="md" @click="handleLogout">
+            Logout
+          </Button>
+        </div>
   </main>
 </template>
 
