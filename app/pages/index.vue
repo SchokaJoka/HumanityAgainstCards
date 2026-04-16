@@ -81,11 +81,11 @@
     </div>
 
     <!-- Main Content -->
-    <section class="relative flex flex-col items-center justify-start h-full w-full max-w-2xl px-16 gap-16"
-      :style="{ paddingTop: 'var(--home-header-h, 0px)' }">
+    <section class="relative flex flex-col items-center justify-start h-full w-full max-w-2xl gap-16">
       <!-- Welcome -->
-      <div class="flex flex-col w-full gap-8" :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
-        <div class="w-full flex flex-row gap-4 flex-wrap items-end justify-between">
+      <div class="flex flex-col w-full gap-8 py-4 justify-between h-lvh px-16">
+        <div></div>
+        <div class="w-full flex flex-col gap-8">
           <h1 class="h-fit text-5xl font-extrabold mb-4">
             <span class="block">Humanity</span>
             <span class="block">Against</span>
@@ -93,28 +93,46 @@
               {{ user?.user_metadata?.full_name || "Cards" }}
             </span>
           </h1>
+          <Button @click="createGame()" variant="primary" size="lg" block class="">Create Game</Button>
+          <Button @click="joinGame()" variant="primary" size="lg" block class="">Join Game</Button>
         </div>
-        <Button @click="createGame()" variant="primary" size="lg" block class="">Create Game</Button>
-        <Button @click="joinGame()" variant="primary" size="lg" block class="">Join Game</Button>
-        <div class="mt-auto mb-10 w-full flex justify-center">
-          <img src="~/assets/svg/weui_arrow-outlined.svg" />
+        <div class="w-full flex justify-center transition-opacity duration-300"
+          :class="showScrollIndicator ? 'opacity-100' : 'opacity-0 pointer-events-none'">
+          <img src="~/assets/svg/weui_arrow-outlined.svg" class="h-8 w-8 animate-bounce" />
         </div>
-      </div>
-      <div>
-        <img src="~/assets/svg/weui_arrow-outlined.svg" class="flex w-full" />
       </div>
 
-      <!-- How To Play -->
-      <div class="flex flex-col gap-1 justify-start" :style="{ minHeight: 'calc(100vh - var(--home-header-h, 0px))' }">
-        <p class="w-full h-fit text-lg font-semibold">
+      <div class="flex flex-col gap-1 pt-8 justify-between h-lvh">
+        <div></div>
+        <!-- How To Play -->
+        <p class="w-full h-fit text-lg font-semibold px-16">
           <span class="text-4xl font-extrabold block mb-4">How to Play</span>
           Each player starts with 10 white cards.<br><br>
           Every round a Czar is chosen and they draw a random black card. <br><br>
           Every player has to submit the amount of white cards needed to answer the black card.<br><br>
           The Czar picks their favorite white card. Winner receives 1 point!
         </p>
+        <!-- Credits -->
+        <div class="w-full flex flex-col gap-2 px-4 pb-2 pt-4 text-xs items-start bg-white text-black rounded-t-xl">
+          <p>
+            Made with ❤️ by Eve Steiger - Karim Pathan - Joel Kammermann
+          </p>
+          <p>
+            Developed as a semester project for the Studio UX & Web 2 module
+          </p>
+          <p>
+            We would like to thank our lecturers for their guidance throughout the development process.
+          </p>
+          <div class="w-full flex flex-row justify-between items-center">
+            <div class="w-24 h-10 flex items-center justify-start">
+              <img class="max-w-full max-h-full object-contain rounded-full" src="~/assets/img/di-logo.jpg" alt="Digital Ideation logo" />
+            </div>
+            <div class="w-32 h-10 flex items-center justify-end">
+              <img class="max-w-full max-h-full object-contain" src="~/assets/img/hslu-logo-black.png" alt="HSLU logo" />
+            </div>
+          </div>
+        </div>
       </div>
-
       <p v-if="lobbyError" class="text-red-500 mt-4 text-sm">{{ lobbyError }}</p>
     </section>
 
@@ -130,8 +148,13 @@ const route = useRoute();
 
 const isJoiningGame = ref(false);
 const isMenuOpen = ref(false);
+const showScrollIndicator = ref(true);
 
 const { headerEl } = useHeaderHeight("--home-header-h");
+
+const handleWindowScroll = () => {
+  showScrollIndicator.value = window.scrollY < 10;
+};
 
 // Guest name editing
 const editingGuestName = ref(false);
@@ -142,6 +165,13 @@ onMounted(async () => {
   if (route.query.action === "createGame") {
     await createGame();
   }
+
+  handleWindowScroll();
+  window.addEventListener("scroll", handleWindowScroll, { passive: true });
+});
+
+onUnmounted(() => {
+  window.removeEventListener("scroll", handleWindowScroll);
 });
 
 const openMenu = () => {
