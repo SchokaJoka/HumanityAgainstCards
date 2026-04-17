@@ -668,7 +668,7 @@ const dev2gaps = ref(false);
                 <svg xmlns="http://www.w3.org/2000/svg" width="19" height="21" viewBox="0 0 19 21" fill="none">
                   <path
                     d="M10 0.0478516H10.0205V3H13V3.04785H13.0205V5.04785H10.0205V10H10.5498C11.6498 8.09 14.1 7.43004 16 8.54004C16.921 9.06684 17.5958 9.93691 17.877 10.96C17.9708 11.3017 18.0175 11.6516 18.0195 12C18.0197 12.0159 18.0205 12.032 18.0205 12.0479C18.0205 12.0583 18.0196 12.0687 18.0195 12.0791C18.019 12.1166 18.0182 12.154 18.0166 12.1914C18.0156 12.2122 18.0141 12.2327 18.0127 12.2529C17.9778 12.8613 17.8058 13.4597 17.5 14L16.0928 17.752L16.0205 18.0479V20.0479H2.02051V20H2V18L1.99512 17.9795L0.520508 14.0479C0.169677 13.428 -0.00594717 12.7315 0.000976562 12.0312C0.000875399 12.0209 0 12.0105 0 12C0 10.9391 0.42173 9.92202 1.17188 9.17188C1.92202 8.42174 2.93914 8 4 8C5.41999 8.00001 6.7402 8.77001 7.4502 10H8V5.04785H5.02051V5H5V3H8V0H10V0.0478516Z"
-                    :fill="isCzar ? 'white': 'black'" />
+                    :fill="isCzar ? 'white' : 'black'" />
                 </svg>
               </div>
             </transition>
@@ -903,8 +903,8 @@ const dev2gaps = ref(false);
           <template #loading>Submitting...</template>
         </Button>
         <Button v-else-if="roundStatus === 'round_submitted' && isCzar" @click="submitWinner(selectedPlayerSubmission)"
-          :loading="isChoosingWinner" :disabled="isChoosingWinner" :variant="isCzar ? 'primary' : 'secondary'" size="md"
-          class="transition-all" key="choose-winner">
+          :loading="isChoosingWinner" :disabled="isChoosingWinner || !selectedPlayerSubmission"
+          :variant="isCzar ? 'primary' : 'secondary'" size="md" class="transition-all" key="choose-winner">
           Choose
           <template #loading>Choosing...</template>
         </Button>
