@@ -1,3 +1,7 @@
+![Title Cover](https://github.com/SchokaJoka/HumanityAgainstCards/blob/main/public/img/Cover.png "Title Cover")
+![Title Cover 2](https://github.com/SchokaJoka/HumanityAgainstCards/blob/main/public/img/Cover-2.png "Title Cover 2")
+![Title Cover 3](https://github.com/SchokaJoka/HumanityAgainstCards/blob/main/public/img/Cover-3.png "Title Cover 3")
+
 # Humanity Against Cards
 
 **Humanity Against Cards** is a real-time, multiplayer web-based card game inspired by the popular "Cards Against Humanity." Built with **Nuxt 4** and **Supabase**, it offers a seamless and interactive experience for players to compete, create, and share their own humor.
