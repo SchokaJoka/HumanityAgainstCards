@@ -1,6 +1,6 @@
-![Title Cover](https://github.com/SchokaJoka/HumanityAgainstCards/blob/main/public/img/Cover.png "Title Cover")
-![Title Cover 2](https://github.com/SchokaJoka/HumanityAgainstCards/blob/main/public/img/Cover-2.png "Title Cover 2")
-![Title Cover 3](https://github.com/SchokaJoka/HumanityAgainstCards/blob/main/public/img/Cover-3.png "Title Cover 3")
+![Title Cover](https://github.com/SchokaJoka/HumanityAgainstCards/blob/main/public/img/cover-4320x3072.png "Title Cover")
+![Title Cover 2](https://github.com/SchokaJoka/HumanityAgainstCards/blob/main/public/img/cover-2.png "Title Cover 2")
+![Title Cover 3](https://github.com/SchokaJoka/HumanityAgainstCards/blob/main/public/img/cover-3.png "Title Cover 3")
 
 # Humanity Against Cards
 
